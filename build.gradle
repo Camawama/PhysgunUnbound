@@ -1,0 +1,275 @@
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+    id 'org.spongepowered.mixin' version '0.7.+'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
+
+// VMOD TESTS ARE OPT-IN: gradlew runGameTestServer -Pvmod. The flag puts the real VMod on the dev
+// runtime (with Valkyrien Skies, Kotlin for Forge, Architectury and the libraries VMod nests) and
+// compiles src/vmodTest, whose tests drive VMod's own physgun packet handler: they check that the
+// hook applies to VMod's class and that seeking, holding, the wheel, freezing and letting go go
+// through VMod's real code. A jar built with the flag on would carry those tests, so it is refused.
+def vmodTests = project.hasProperty('vmod')
+if (vmodTests) {
+    sourceSets.main.java.srcDir 'src/vmodTest/java'
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            // Mixin needs the refmap remapped into SRG at dev runtime.
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            // Its own directory, so automated runs never rotate the logs or delete the world
+            // of a manual runServer session.
+            workingDirectory project.file('run-gametest')
+        }
+
+        data {
+            workingDirectory project.file('run-data')
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+// Two configs: the vanilla hooks (required), and the VMod hook, which is not: if VMod changes,
+// that one is logged and skipped, never fatal (see mixin/vmod/VmodMixinPlugin).
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+    config "${mod_id}.mixins.json"
+    config "${mod_id}.vmod.mixins.json"
+}
+
+repositories {
+    // Camafy, the shared library, is published to the local Maven repository.
+    mavenLocal {
+        content { includeGroup 'net.camacraft.camafy' }
+    }
+    // VMod, compile-only (see gradle.properties).
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
+    mavenCentral()
+    if (vmodTests) {
+        // the libraries VMod nests that the dev runtime doesn't unpack (see below)
+        flatDir { dirs "${buildDir}/vmod-nested" }
+        // VS's core API, for the ship test's raft (the VS mod jar itself comes from Modrinth)
+        maven {
+            name = 'ValkyrienSkies'
+            url = 'https://maven.valkyrienskies.org'
+            content { includeGroupByRegex 'org\\.valkyrienskies.*' }
+        }
+    }
+}
+
+if (vmodTests) {
+    // A dev run doesn't unpack the jars a mod nests (META-INF/jars), so VMod's are taken out of
+    // its jar for the dev runtime. After ForgeGradle's own afterEvaluate: resolving anything
+    // earlier would freeze its deobf repository before it has finished setting it up.
+    afterEvaluate {
+        def vmodJar = configurations.detachedConfiguration(dependencies.create("maven.modrinth:vmod:${vmod_modrinth_version}"))
+        vmodJar.transitive = false
+        copy {
+            from(zipTree(vmodJar.singleFile)) {
+                include 'META-INF/jars/*.jar'
+                eachFile { it.path = it.name }
+            }
+            includeEmptyDirs = false
+            into "${buildDir}/vmod-nested"
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    implementation fg.deobf("net.camacraft.camafy:camafy:${camafy_version}")
+
+    // VMod is never required: the mod detects it at runtime. Only vmod/VmodBridgeImpl,
+    // vmod/VmodPackets and mixin/vmod/PlayerPhysgunStateMixin name its classes; they are loaded
+    // only when VMod is installed, and every call into VMod is guarded (see vmod/Vmod.java).
+    // Not deobfuscated: nothing here calls a Minecraft method on a VMod class.
+    compileOnly("maven.modrinth:vmod:${vmod_modrinth_version}") { transitive = false }
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib:${kotlin_stdlib_version}") { transitive = false }
+
+    // The real VMod and what it needs, only with -Pvmod (see src/vmodTest).
+    if (vmodTests) {
+        // the ship test builds a raft with VS's own ShipAssembler (test code only: the mod reaches VS through Camafy)
+        compileOnly fg.deobf("maven.modrinth:valkyrien-skies:${vs_modrinth_version}") { transitive = false }
+        compileOnly("org.valkyrienskies.core:api:${vs_core_version}") { transitive = false }
+        runtimeOnly fg.deobf("maven.modrinth:vmod:${vmod_modrinth_version}") { transitive = false }
+        runtimeOnly fg.deobf("maven.modrinth:valkyrien-skies:${vs_modrinth_version}") { transitive = false }
+        runtimeOnly fg.deobf("maven.modrinth:kotlin-for-forge:${kotlin_for_forge_modrinth_version}") { transitive = false }
+        runtimeOnly fg.deobf("maven.modrinth:architectury-api:${architectury_modrinth_version}") { transitive = false }
+        runtimeOnly fg.deobf("vmodnested:valkyrien-ship-schematics-1.20.1-forge:2.0")
+        runtimeOnly "vmodnested:mixinsquared-forge:0.3.5-beta.2"
+        runtimeOnly "org.jgrapht:jgrapht-core:1.5.2"
+        runtimeOnly "org.jheaps:jheaps:0.14"
+        runtimeOnly "org.apfloat:apfloat:1.14.0"
+    }
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+            mod_authors: mod_authors, mod_description: mod_description,
+            camafy_version_range: camafy_version_range,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+// The release artifact: build/libs/physgununbound-<version>.jar (reobfuscated). The mod bundles
+// no libraries, so there is no jarJar variant.
+tasks.named('jar', Jar).configure {
+    doFirst {
+        if (vmodTests) throw new GradleException('Built with -Pvmod: this jar would carry the VMod tests. Build without it.')
+    }
+    manifest {
+        attributes([
+                'Specification-Title'     : mod_id,
+                'Specification-Vendor'    : mod_authors,
+                'Specification-Version'   : '1',
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.jar.archiveVersion,
+                'Implementation-Vendor'   : mod_authors,
+                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                'MixinConfigs'            : "${mod_id}.mixins.json,${mod_id}.vmod.mixins.json"
+        ])
+    }
+
+    finalizedBy 'reobfJar'
+}
+
+// A jar whose mixin config names a refmap it lacks crashes at startup outside the dev
+// environment. Gradle can skip recompiling (nothing changed) and still wipe the folder the
+// annotation processor wrote the refmap to, so the built jar is checked for it every time.
+tasks.register('checkRefmap') {
+    group = 'verification'
+    description = 'Fails the build if the reobfuscated jar lacks its mixin refmap.'
+    dependsOn 'reobfJar'
+    doLast {
+        def jarFile = tasks.named('jar', Jar).get().archiveFile.get().asFile
+        def zip = new java.util.zip.ZipFile(jarFile)
+        try {
+            if (zip.getEntry("${mod_id}.refmap.json") == null) {
+                throw new GradleException("${jarFile.name} has no ${mod_id}.refmap.json: run 'gradlew clean build'")
+            }
+        } finally {
+            zip.close()
+        }
+    }
+}
+tasks.named('build').configure { dependsOn 'checkRefmap' }
+
+/*
+ * Every gametest run starts from a fresh, flat, fixed-seed, empty world (the same setup as
+ * Unleashed Lead's and MKW Mobility's suites): a dedicated gametest server otherwise generates
+ * normal terrain on a random seed.
+ */
+tasks.register('cleanGameTestWorld', Delete) {
+    group = 'verification'
+    description = 'Deletes the saved gametest world so each run starts clean.'
+    delete file('run-gametest/world')
+}
+
+tasks.register('gameTestServerProperties') {
+    group = 'verification'
+    description = 'Forces the gametest world to be flat, fixed-seed and empty.'
+
+    doLast {
+        def file = file('run-gametest/server.properties')
+        file.parentFile.mkdirs()
+
+        def props = new Properties()
+        if (file.exists()) {
+            file.withInputStream { props.load(it) }
+        }
+
+        props.setProperty('level-type', 'minecraft:flat')
+        props.setProperty('level-seed', '0')
+        props.setProperty('generate-structures', 'false')
+        props.setProperty('spawn-monsters', 'false')
+        props.setProperty('spawn-animals', 'false')
+        props.setProperty('spawn-npcs', 'false')
+
+        file.withOutputStream {
+            props.store(it, 'Written by gameTestServerProperties -- see build.gradle')
+        }
+    }
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    dependsOn 'cleanGameTestWorld'
+    dependsOn 'gameTestServerProperties'
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/mcmodsrepo"
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

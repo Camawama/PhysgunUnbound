@@ -1,0 +1,79 @@
+# Physgun Unbound: in-game testing checklist
+
+The gametests (`./gradlew runGameTestServer`, and with `-Pvmod` against the real VMod and a real Valkyrien Skies raft) cover the server side: grabbing, following, the wheel, rotating, walls, throwing, freezing, the refusals and the cleanup. Everything below needs a real client: how it looks and feels, multiplayer, and the other mods in the pack.
+
+Tick each box as you go. Next to anything that looks wrong, write what you saw.
+
+**Setup:** give yourself VMod's physgun (`/give @s the_vmod:physgun`). The server log should say `VMod 1.9.1 found: its physgun picks up entities too` at start, and nothing from Physgun Unbound after it.
+
+## 1. Holding
+- [ ] Aim at a cow and hold the left button.
+  - It is picked up where you aimed (its back, its head).
+  - It stays at that distance and follows the crosshair smoothly as you look and walk around.
+  - A blue beam runs from the gun to the point you grabbed and bends as the cow lags behind.
+- [ ] Look at the cow in third person (F5), and have a second player watch. The beam comes from your eyes and ends on the cow for both of you.
+- [ ] Turn around on the spot. The cow swings round you and keeps facing the same way relative to you.
+- [ ] Wheel up and down. The cow goes out and comes in about a block a notch. It stops about a block from your eyes, and at 128 blocks.
+- [ ] Hold E and move the mouse. Your view stays still and the cow turns (its body left and right, its head up and down). Let go of E: looking works again.
+- [ ] Push the cow into a wall and into the floor. It stops at them and doesn't pass through or jitter.
+- [ ] Swing quickly and let go. The cow flies off the way you swung and lands (Full Stop may hurt it if it hits a wall hard).
+- [ ] While holding the cow, switch the hotbar slot away from the physgun. The cow drops, keeping its speed.
+
+## 2. Freezing
+- [ ] Hold a zombie in the air and right click. It stays exactly there, doesn't move, attack or fall, and you are no longer holding it.
+- [ ] Middle click does the same.
+- [ ] Leave the world and come back (or restart the server). The zombie is still frozen in the same spot.
+- [ ] Aim at it and press R (left button up). It falls and walks again.
+- [ ] Freeze it again, then grab it: it is unfrozen and held.
+- [ ] Press R on a mob you froze with `/data merge entity @e[type=villager,limit=1,sort=nearest] {NoAI:1b}` (not the physgun). Nothing changes.
+
+## 3. Things to pick up
+- [ ] **An item** on the ground: it lifts and floats with no falling flicker, and you don't pick it up when you pull it right in. Let go: it drops and you can pick it up after half a second.
+- [ ] **A minecart on a rail:** it comes off the rail. Let go on the rail: it rolls on the rail again.
+- [ ] **A boat** on land and on water.
+- [ ] **Sand:** break the block under a sand block and grab the falling sand. Hold it for over 30 seconds: it stays an entity. Let go over the ground: it lands as a block.
+- [ ] **Primed TNT:** it still explodes on time while held.
+- [ ] **An armor stand, and an experience orb.**
+- [ ] **A chicken jockey (or a zombie on a horse):** aiming at the rider lifts both.
+- [ ] **Things it shouldn't pick up** (the physgun goes on seeking, or grabs a ship behind them):
+  - an item frame, a painting, a lead knot;
+  - an arrow stuck in a wall;
+  - the ender dragon;
+  - a Create train or bearing contraption;
+  - a sleeping villager.
+
+## 4. Ships (Valkyrien Skies)
+- [ ] Build a small boat ship with a pig standing on its deck. Aim at the pig: the pig is picked up, not the ship.
+- [ ] Aim at the ship's hull with nothing in front: VMod picks up the ship, exactly as without this mod (distance, rotate, freeze, R).
+- [ ] Hold a pig and push it against a ship's hull. It collides with the hull.
+- [ ] Put the pig down on a moving ship's deck and let go. It rides the ship as usual.
+- [ ] Stand on a moving ship and grab a mob on the ground. It is held steadily.
+
+## 5. Players (two clients)
+- [ ] Player A holds player B in the air.
+  - B floats smoothly (no rubber-banding) and can look around but not walk away.
+  - After 10 seconds in the air, B is not kicked for flying (test on a server with `allow-flight=false`).
+- [ ] A lets go while swinging: B is thrown, falls, and takes fall or crash damage as usual. No fall damage from the time B was held.
+- [ ] A right clicks while holding B: B is just let go, not frozen.
+- [ ] B logs out while held: A's beam disappears and nothing errors. A logs out while holding B: B drops.
+- [ ] B dies while held (A holds B over lava). The hold ends and A's physgun works again.
+- [ ] B is in a Game Start match with PvP off, or protected: A can't pick B up.
+- [ ] B has Physgun Unbound removed from their client (VMod still installed): B can still join, A can still hold B (a little laggier), and B sees no beam.
+- [ ] Set `grabPlayers = false`: A can't pick up B, or a horse B rides.
+
+## 6. Other mods
+- [ ] **Full Stop:**
+  - a held mob slammed into walls takes no crash damage while held;
+  - a thrown one hitting a wall does;
+  - a held player gets no g-force effects.
+- [ ] **Gravity Unbound:**
+  - a player standing on gravity plating can't be picked up;
+  - a mob held in a rotated field moves as held, and falls along the field's gravity when let go.
+- [ ] **MKW Mobility:** a kart, or a driver in one, can't be picked up.
+- [ ] **Grapple Unbound:** a player swinging on a rope can't be picked up. Grappling while held does nothing odd.
+- [ ] **WallJump:** a held player doesn't cling to walls.
+- [ ] **Pehkui (Genesis):** a shrunk pig follows the crosshair at normal speed.
+- [ ] **Shaders (Oculus):** the beam still shows, with and without a shader pack.
+
+## 7. Performance
+- [ ] Hold a mob for a minute near a busy base: no tick lag in `/spark tps`, and nothing from Physgun Unbound in a spark profile.

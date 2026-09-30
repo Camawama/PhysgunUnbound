@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.camacraft.physgununbound.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "physgununbound.refmap.json",
+  "mixins": [
+    "EntityMoveMixin",
+    "ServerGamePacketListenerImplMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

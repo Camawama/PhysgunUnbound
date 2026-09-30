@@ -1,0 +1,33 @@
+All notable changes to Physgun Unbound are documented in this file.
+
+The format is based on Keep a Changelog (https://keepachangelog.com/en/1.0.0/),
+and this project adheres to Semantic Versioning (https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [1.0.0] - 2026-09-29
+
+### Added
+- VMod's physgun picks up entities as well as Valkyrien Skies ships, with its own buttons:
+  - hold the left button on an entity to pick it up at the point aimed at;
+  - the wheel pushes it out and pulls it in, a block a notch;
+  - E and a mouse drag turn it;
+  - right or middle click freezes it in place and lets go;
+  - R unfreezes the frozen entity aimed at (as does grabbing it);
+  - letting go keeps its speed, so a swing throws it.
+- An entity in front of a ship block is picked up instead of the ship; with nothing in front, VMod picks up the ship as before.
+- The hold runs VMod's own spring and damper (its server settings PCONST and DCONST), three 1/60 s steps a tick like Valkyrien Skies' physics, through the entity's collision code, up to `maxSpeed` (70 blocks a second).
+- Mobs, animals, items, experience orbs, boats, minecarts (lifted off their rails), falling blocks (they don't land or expire while held), primed TNT, armor stands, entities standing on ship decks, and players. Riders come along with what they ride.
+- Players are moved by their own client (the server sends the target each tick). A client without the mod is steered with vanilla motion packets. Held players aren't kicked for flying and build up no fall damage while held.
+- Frozen entities keep no gravity and no AI through saves, and unfreezing restores exactly what they had.
+- The physgun's beam to a held entity, drawn like VMod's beam to a held ship.
+- Server config `physgun`: `enabled`, `grabPlayers`, `range`, `minDistance`, `maxDistance`, `maxSpeed`, `fallbackSpring`, `fallbackDamping`, `ungrabbable` (ids, tags, wildcards, regex).
+- Entity tag `#physgununbound:ungrabbable`: the ender dragon, markers, displays, interaction boxes, area clouds, evoker fangs, lightning, and Create's contraptions, trains, seats and glue.
+- Pack rules through Camafy 0.1.13:
+  - held entities are claimed for every physics aspect and frozen ones for `MOTION`;
+  - nothing another mod claims `MOTION` of, or the gravity mod anchors, is picked up;
+  - grabbing and unfreezing ask the minigame host (`MatchPolicies.canHarm`);
+  - Valkyrien Skies is reached only through Camafy;
+  - resized entities move the real distance.
+- If VMod's internals don't match (a later VMod), the server logs one line at start and the addon does nothing; VMod is unaffected. The VMod hook is in its own mixin config that isn't required.
+- Gametests: 12 of the hold itself, and with `-Pvmod` two more against the real VMod, Valkyrien Skies, Kotlin for Forge and Architectury: VMod's own message handler driving a grab, the wheel, the rotate drag, a freeze, an unfreeze and a throw; and a pig on a real VS raft picked up (lifted, and stopped by the deck when pressed into it) while the raft is still VMod's to grab.

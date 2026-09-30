@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "net.camacraft.physgununbound.mixin.vmod",
+  "plugin": "net.camacraft.physgununbound.mixin.vmod.VmodMixinPlugin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "physgununbound.refmap.json",
+  "mixins": [
+    "PlayerPhysgunStateMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
