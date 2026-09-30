@@ -38,6 +38,7 @@ public final class PhysgunUnbound {
     public PhysgunUnbound(FMLJavaModLoadingContext context) {
         IEventBus modBus = context.getModEventBus();
         context.registerConfig(ModConfig.Type.SERVER, PuConfig.SERVER_SPEC);
+        context.registerConfig(ModConfig.Type.CLIENT, PuConfig.CLIENT_SPEC);
 
         PuNetwork.init();
         HeldEntities.registerClaims();

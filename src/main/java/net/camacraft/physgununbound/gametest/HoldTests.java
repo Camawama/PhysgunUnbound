@@ -41,7 +41,7 @@ public class HoldTests {
         FakePlayer holder = TestUtil.holder(helper, new Vec3(4.5, 2.0, 12.5), -90.0F, 0.0F);
         Pig pig = TestUtil.idle(helper, EntityType.PIG, new Vec3(8.5, 2.0, 12.5));
         Hold hold = TestUtil.grab(helper, holder, pig);
-        float pigYaw = pig.getYRot();
+        float pigYaw = pig.yBodyRot; // the hold starts from the body's facing, which is what the model shows
 
         helper.runAfterDelay(20, () -> {
             if (TestUtil.error(hold) > 0.05) helper.fail("after 1 s the pig is " + fmt(TestUtil.error(hold)) + " from the target");

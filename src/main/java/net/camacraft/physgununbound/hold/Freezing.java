@@ -1,9 +1,13 @@
 package net.camacraft.physgununbound.hold;
 
+import net.camacraft.physgununbound.network.PuNetwork;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Quaterniond;
+import org.joml.Quaterniondc;
 
 /**
  * Freezing entities in place, the entity version of VMod making a ship static (right click while
@@ -16,6 +20,10 @@ import net.minecraft.world.phys.Vec3;
  * {@value #HAD_NO_AI} if it had those flags before. Unfreezing puts back exactly what it had, and
  * only entities the physgun froze are ever unfrozen by it (a map maker's NoAI villager stays as it
  * is).
+ *
+ * <p>A frozen entity also keeps the way it was turned while held ({@link #keepPose}: its
+ * orientation, in its persistent data, so it survives saves and is sent to every client that starts
+ * seeing it). Unfreezing lets it turn back upright.
  *
  * <p>The hold itself turns gravity off on items, carts, boats and the like while they are held, so
  * their clients don't draw them falling between updates. {@value #HELD} marks that too: if the
@@ -57,16 +65,48 @@ public final class Freezing {
         HeldEntities.markFrozen(entity);
     }
 
-    /** Unfreezes an entity the physgun froze; anything else is left alone. */
+    /** A frozen entity keeps {@code orientation} (the hold's) until it is unfrozen; the clients near it are told. */
+    public static void keepPose(Entity entity, Quaterniondc orientation) {
+        if (!isFrozen(entity)) return;
+        ModelPose.storeFrozen(entity, orientation);
+        PuNetwork.sendFrozenPose(entity, orientation);
+    }
+
+    /** The orientation a frozen entity keeps, if it was frozen turned. */
+    public static Quaterniond keptPose(Entity entity) {
+        return ModelPose.storedFrozen(entity);
+    }
+
+    /** A player has started seeing a frozen entity: tell them how it is turned. */
+    public static void sendPoseTo(ServerPlayer player, Entity entity) {
+        if (!isFrozen(entity)) return;
+        Quaterniond pose = ModelPose.storedFrozen(entity);
+        if (pose != null) PuNetwork.sendFrozenPose(player, entity, pose);
+    }
+
+    /** Unfreezes an entity the physgun froze, and lets it turn back upright; anything else is left alone. */
     public static boolean unfreeze(Entity entity) {
+        return unfreeze(entity, true);
+    }
+
+    /**
+     * Unfreezes an entity the physgun froze; anything else is left alone.
+     *
+     * @param letTurnBack whether the clients are told it is no longer held turned (false when a
+     *                    hold takes it straight over and carries on from its pose)
+     */
+    public static boolean unfreeze(Entity entity, boolean letTurnBack) {
         if (!isFrozen(entity)) return false;
         entity.setNoGravity(entity.getTags().contains(HAD_NO_GRAVITY));
         if (entity instanceof Mob mob) mob.setNoAi(entity.getTags().contains(HAD_NO_AI));
         entity.removeTag(FROZEN);
         entity.removeTag(HAD_NO_GRAVITY);
         entity.removeTag(HAD_NO_AI);
+        boolean turned = ModelPose.storedFrozen(entity) != null;
+        ModelPose.clearFrozen(entity);
         HeldEntities.unmarkFrozen(entity);
         entity.hasImpulse = true;
+        if (turned && letTurnBack) PuNetwork.sendFrozenPoseEnd(entity);
         return true;
     }
 
@@ -89,6 +129,7 @@ public final class Freezing {
             entity.removeTag(HELD);
         }
         if (isFrozen(entity)) HeldEntities.markFrozen(entity);
+        else if (ModelPose.storedFrozen(entity) != null) ModelPose.clearFrozen(entity); // a pose without its freeze (edited data)
     }
 
     /** An entity leaving its level (unloaded, killed, changing dimension). */

@@ -5,7 +5,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 
-/** Client wiring: the beams and the held player's own side of a hold. */
+/** Client wiring: the beams, the turned models of held and frozen entities, and the held player's own side of a hold. */
 public final class PhysgunUnboundClient {
     private PhysgunUnboundClient() {}
 
@@ -19,17 +19,20 @@ public final class PhysgunUnboundClient {
     private static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.START) return;
         ClientBeams.tick();
+        ClientModelRotations.tick();
         ClientHeld.tick();
     }
 
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         ClientBeams.clear();
+        ClientModelRotations.clear();
         ClientHeld.end();
     }
 
     /** Respawning or changing dimension: entity ids start over, so nothing held carries across. */
     private static void onRespawn(ClientPlayerNetworkEvent.Clone event) {
         ClientBeams.clear();
+        ClientModelRotations.clear();
         ClientHeld.end();
     }
 }

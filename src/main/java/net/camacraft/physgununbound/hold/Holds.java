@@ -118,8 +118,10 @@ public final class Holds {
         Hold mine = BY_HOLDER.get(holder.getUUID());
         if (mine != null) end(mine, End.RELEASED);
         Hold theirs = holdOn(entity);
+        // a tilted entity taken over, or grabbed out of a freeze, carries on from the pose it had
+        Quaterniond startOrientation = theirs != null ? new Quaterniond(theirs.orientation) : ModelPose.storedFrozen(entity);
         if (theirs != null) end(theirs, End.STOLEN);
-        Freezing.unfreeze(entity); // grabbing a frozen entity unfreezes it, as grabbing a static ship does
+        Freezing.unfreeze(entity, false); // grabbing a frozen entity unfreezes it, as grabbing a static ship does
 
         PuConfig.Server cfg = PuConfig.SERVER;
         Vec3 eye = holder.getEyePosition();
@@ -129,7 +131,7 @@ public final class Holds {
         Hold hold = new Hold(holder, entity, requirePhysgun, mode,
                 spring > 0.0 && Double.isFinite(spring) ? spring : cfg.fallbackSpring(),
                 damping >= 0.0 && Double.isFinite(damping) ? damping : cfg.fallbackDamping(),
-                distance, hitPoint.subtract(entity.position()), velocity);
+                distance, hitPoint.subtract(entity.position()), velocity, startOrientation);
 
         if (mode == Hold.Mode.SERVER) {
             if (!(entity instanceof LivingEntity) && !entity.isNoGravity()) {
@@ -194,6 +196,7 @@ public final class Holds {
         hold.savedNoGravity = null; // freezing keeps gravity off
         end(hold, End.FROZEN);
         Freezing.freeze(entity, originalNoGravity);
+        Freezing.keepPose(entity, hold.orientation); // it hangs there turned the way it was held
     }
 
     /** Ends every hold by or on this entity (it logged out, died, changed dimension or left its level). */
@@ -330,18 +333,20 @@ public final class Holds {
         ServerPlayer holder = hold.holder;
         PuConfig.Server cfg = PuConfig.SERVER;
 
-        // turn with the holder, as VMod turns a held ship with the player's view (the heading only:
-        // an entity has no roll, and its pitch is its head's own)
-        float holderYaw = holder.getYRot();
-        double turn = Mth.wrapDegrees(holderYaw - hold.lastHolderYaw);
-        hold.lastHolderYaw = holderYaw;
-        if (turn != 0.0) hold.turnBy(HoldMotion.yawTurn(turn));
+        // turn with the holder, as VMod turns a held ship with the player's view: by the change in
+        // the view since last tick (its yaw, and its pitch too unless the config keeps entities level)
+        if (isTurnable(entity)) {
+            Quaterniond view = view(holder);
+            Quaterniond turn = view.mul(hold.lastView.conjugate(new Quaterniond()), new Quaterniond());
+            hold.lastView.set(view);
+            if (Math.abs(turn.w) < 1.0 - 1.0E-12) hold.turnBy(turn.normalize());
+        }
 
         Vec3 target = hold.target();
         Vec3 offset = hold.offset();
         if (hold.mode == Hold.Mode.SERVER) {
             moveOnServer(hold, entity, target, offset, cfg.maxSpeed());
-            face(hold, entity);
+            ModelPose.applyFacing(entity, hold.orientation, hold.yaw);
         } else {
             moveOnClient(hold, entity, target.subtract(offset), cfg.maxSpeed());
         }
@@ -414,18 +419,15 @@ public final class Holds {
         }
     }
 
-    /** Turns the entity to the hold's heading (a mob's head and body too, and its head's pitch). */
-    private static void face(Hold hold, Entity entity) {
-        float yaw = hold.yaw;
-        entity.setYRot(yaw);
-        if (entity instanceof LivingEntity living) {
-            living.setYHeadRot(yaw);
-            living.setYBodyRot(yaw);
-            living.setXRot(Mth.clamp(HoldMotion.pitch(hold.orientation), -90.0F, 90.0F));
-        }
-    }
-
     // ------------------------------------------------------------------ helpers
+
+    /**
+     * The holder's view as a rotation (VMod's {@code playerRotToQuat}): its yaw, and its pitch
+     * unless the config keeps held entities level when the holder looks up and down.
+     */
+    public static Quaterniond view(ServerPlayer holder) {
+        return HoldMotion.rotationOf(holder.getYRot(), PuConfig.SERVER.followViewPitch() ? holder.getXRot() : 0.0F);
+    }
 
     /** Whether a player's client, not the server, moves this entity: a player, or a vehicle a player drives. */
     public static boolean isClientSimulated(Entity entity) {
@@ -439,7 +441,7 @@ public final class Holds {
     }
 
     /** Players pick their own facing; everything else turns with the hold. */
-    private static boolean isTurnable(Entity entity) {
+    public static boolean isTurnable(Entity entity) {
         return !isClientSimulated(entity);
     }
 

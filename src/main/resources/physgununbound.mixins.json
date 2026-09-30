@@ -5,8 +5,13 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "physgununbound.refmap.json",
   "mixins": [
+    "AbstractArrowAccessor",
     "EntityMoveMixin",
+    "ProjectileTickMixin",
     "ServerGamePacketListenerImplMixin"
+  ],
+  "client": [
+    "client.EntityRenderDispatcherMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -60,8 +60,16 @@ public class RuleTests {
         refuse(helper, holder, box, "an interaction box (#physgununbound:ungrabbable)");
 
         Pig scripted = TestUtil.idle(helper, EntityType.PIG, new Vec3(7.5, 2.0, 16.5));
-        PhysicsOwnership.claim(scripted, ResourceLocation.fromNamespaceAndPath("othermod", "kart"), PhysicsAspect.MOTION.bit, 100);
-        refuse(helper, holder, scripted, "a pig another mod scripts");
+        PhysicsOwnership.claim(scripted, ResourceLocation.fromNamespaceAndPath("othermod", "kart"), PhysicsAspect.ALL, 100);
+        refuse(helper, holder, scripted, "a pig another mod scripts the whole physics of");
+
+        // a claim on its motion alone doesn't stop the physgun (the hold claims everything, and
+        // mods that arbitrate MOTION stand down for it): a kart in free roam, a player on a rope
+        Pig driven = TestUtil.idle(helper, EntityType.PIG, new Vec3(7.5, 2.0, 18.5));
+        PhysicsOwnership.claim(driven, ResourceLocation.fromNamespaceAndPath("othermod", "kart"), PhysicsAspect.MOTION.bit, 100);
+        Hold overKart = Holds.grab(holder, driven, driven.getBoundingBox().getCenter(), false, TestUtil.SPRING, TestUtil.DAMPING);
+        if (overKart == null) helper.fail("a pig another mod only moves couldn't be picked up");
+        else Holds.end(overKart, Holds.End.RELEASED);
 
         Pig protectedPig = TestUtil.idle(helper, EntityType.PIG, new Vec3(7.5, 2.0, 20.5));
         ResourceLocation host = PhysgunUnbound.id("test_host");

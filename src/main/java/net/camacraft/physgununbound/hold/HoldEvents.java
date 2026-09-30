@@ -28,6 +28,7 @@ public final class HoldEvents {
         MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, HoldEvents::onDeath);
         MinecraftForge.EVENT_BUS.addListener(HoldEvents::onJoin);
         MinecraftForge.EVENT_BUS.addListener(HoldEvents::onLeave);
+        MinecraftForge.EVENT_BUS.addListener(HoldEvents::onStartTracking);
         MinecraftForge.EVENT_BUS.addListener(HoldEvents::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(HoldEvents::onServerStopping);
     }
@@ -58,6 +59,13 @@ public final class HoldEvents {
         if (event.getLevel().isClientSide()) return;
         Holds.endInvolving(event.getEntity(), Holds.End.LOST, Holds.End.GONE);
         Freezing.onLeave(event.getEntity());
+    }
+
+    /** A player starts seeing an entity: if it is frozen turned, they are told how. */
+    private static void onStartTracking(PlayerEvent.StartTracking event) {
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            Freezing.sendPoseTo(player, event.getTarget());
+        }
     }
 
     private static void onServerStarted(ServerStartedEvent event) {

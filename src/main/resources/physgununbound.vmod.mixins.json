@@ -8,6 +8,9 @@
   "mixins": [
     "PlayerPhysgunStateMixin"
   ],
+  "client": [
+    "client.ClientPhysgunStateMixin"
+  ],
   "injectors": {
     "defaultRequire": 0
   }

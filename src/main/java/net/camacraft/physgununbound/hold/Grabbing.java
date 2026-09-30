@@ -6,14 +6,13 @@ import net.camacraft.camafy.minigame.MatchPolicies;
 import net.camacraft.camafy.physics.PhysicsAspect;
 import net.camacraft.camafy.physics.PhysicsOwnership;
 import net.camacraft.physgununbound.PuConfig;
+import net.camacraft.physgununbound.mixin.AbstractArrowAccessor;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.HangingEntity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -82,6 +81,12 @@ public final class Grabbing {
         return entity.isAlive() && !entity.isSpectator();
     }
 
+    /** Anything with a box to grab. Entities that are only data (markers, interaction boxes, displays) have none, or are tagged. */
+    private static boolean hasBody(Entity entity) {
+        AABB box = entity.getBoundingBox();
+        return box.getXsize() > 1.0E-4 && box.getYsize() > 1.0E-4 && box.getZsize() > 1.0E-4;
+    }
+
     /** What grabbing {@code hit} takes hold of: a multipart body's owner, and whatever it rides (the whole stack). */
     public static Entity resolve(Entity hit) {
         Entity entity = hit instanceof PartEntity<?> part ? part.getParent() : hit;
@@ -100,14 +105,17 @@ public final class Grabbing {
         if (target.isSpectator()) return "it is a spectator";
         if (target.level() != holder.level()) return "it is in another dimension";
         if (target == holder.getRootVehicle() || target.hasIndirectPassenger(holder)) return "it carries the holder";
-        if (target instanceof HangingEntity) return "it hangs on a block";
-        if (target instanceof Projectile) return "it is a projectile";
-        if (!(target.isPickable() || target instanceof ItemEntity || target instanceof ExperienceOrb)) return "it has no body";
+        if (target instanceof HangingEntity) return "it hangs on a block"; // frames, paintings and knots break when moved
+        if (target instanceof AbstractArrow arrow && ((AbstractArrowAccessor) arrow).physgununbound$inGround()) return "it is stuck in a block";
+        if (!hasBody(target)) return "it has no body";
         if (target instanceof LivingEntity living && living.isSleeping()) return "it is asleep in a bed";
         if (PuConfig.SERVER.isUngrabbable(target.getType())) return "its type is ungrabbable";
         if (Ships.inShipyard(target.level(), target.getX(), target.getY(), target.getZ())) return "it is part of a ship";
         if (Gravity.isAnchored(target)) return "the gravity mod anchors it";
-        if (PhysicsOwnership.claimedByOther(target, PhysicsAspect.MOTION, HeldEntities.OWNER)) return "another mod moves it";
+        // Another mod's claim on its motion alone doesn't stop the physgun: the hold claims every
+        // aspect, and the mods that arbitrate MOTION (WallJump, Grapple Unbound) stand down for it.
+        // A mod that owns the whole of its physics (a kart in an MKW race, MKW's hazards) keeps it.
+        if (PhysicsOwnership.claimsExcept(target, HeldEntities.OWNER) == PhysicsAspect.ALL) return "another mod scripts all of it";
         if (!MatchPolicies.canHarm(holder, target)) return "a minigame protects it";
         for (Entity rider : target.getIndirectPassengers()) {
             if (rider == holder) return "it carries the holder";

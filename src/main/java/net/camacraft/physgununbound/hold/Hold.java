@@ -5,6 +5,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaterniond;
+import org.joml.Quaterniondc;
+import org.joml.Vector3d;
 
 import java.util.UUID;
 
@@ -35,14 +37,17 @@ public final class Hold {
     double distance;
     /** From the entity's position to the grabbed point, at the moment of the grab. */
     final Vec3 grabOffset;
-    /** The ideal rotation (world frame): the entity's facing at the grab, turned since. */
+    /**
+     * The ideal orientation (world frame): the model as its renderer drew it at the grab, turned
+     * with the holder's view and the rotate drags since ({@link ModelPose}).
+     */
     final Quaterniond orientation;
-    /** The heading of {@link #orientation} at the grab. */
-    final float grabYaw;
-    /** Its heading now (kept for when the rotation points straight up or down). */
+    /** The inverse of {@link #orientation} at the grab: with the orientation, the turn since the grab. */
+    final Quaterniond grabOrientationInverse;
+    /** Its heading now (kept for when the orientation's forward axis points straight up or down). */
     float yaw;
-    /** The holder's yaw last tick, to turn the entity with the holder. */
-    float lastHolderYaw;
+    /** The holder's view last tick, to turn the entity with the holder. */
+    final Quaterniond lastView;
     /** The grabbed point's velocity, blocks per second (server-simulated entities). */
     Vec3 velocity;
 
@@ -52,8 +57,13 @@ public final class Hold {
 
     int ticks;
 
+    /**
+     * @param startOrientation the orientation to carry on from (a hold taken over from another
+     *                         player, or a frozen entity's kept pose); null to start from how the
+     *                         entity is drawn now
+     */
     Hold(ServerPlayer holder, Entity entity, boolean requirePhysgun, Mode mode, double spring, double damping,
-         double distance, Vec3 grabOffset, Vec3 velocity) {
+         double distance, Vec3 grabOffset, Vec3 velocity, @Nullable Quaterniondc startOrientation) {
         this.holderId = holder.getUUID();
         this.holder = holder;
         this.entity = entity;
@@ -63,10 +73,10 @@ public final class Hold {
         this.damping = damping;
         this.distance = distance;
         this.grabOffset = grabOffset;
-        this.orientation = HoldMotion.rotationOf(entity.getYRot(), entity.getXRot());
-        this.grabYaw = HoldMotion.yaw(orientation, entity.getYRot());
-        this.yaw = grabYaw;
-        this.lastHolderYaw = holder.getYRot();
+        this.orientation = startOrientation != null ? new Quaterniond(startOrientation).normalize() : ModelPose.base(entity, 1.0F);
+        this.grabOrientationInverse = orientation.conjugate(new Quaterniond());
+        this.yaw = HoldMotion.yaw(orientation, entity.getYRot());
+        this.lastView = Holds.view(holder);
         this.velocity = velocity;
     }
 
@@ -108,9 +118,20 @@ public final class Hold {
         return yaw;
     }
 
+    /** The ideal orientation of the entity's model (world frame; see {@link ModelPose}). */
+    public Quaterniondc orientation() {
+        return orientation;
+    }
+
+    /** How the entity has been turned since the grab (world frame). */
+    public Quaterniond turnSinceGrab() {
+        return orientation.mul(grabOrientationInverse, new Quaterniond()).normalize();
+    }
+
     /** From the entity's position to the grabbed point now: the grab offset, turned with the entity. */
     public Vec3 offset() {
-        return HoldMotion.turn(grabOffset, yaw - grabYaw);
+        Vector3d turned = turnSinceGrab().transform(new Vector3d(grabOffset.x, grabOffset.y, grabOffset.z));
+        return new Vec3(turned.x, turned.y, turned.z);
     }
 
     /** Where the holder is pulling the grabbed point to: VMod's eye position plus look times distance. */
@@ -123,7 +144,7 @@ public final class Hold {
         return target().subtract(offset());
     }
 
-    void turnBy(Quaterniond worldRotation) {
+    void turnBy(Quaterniondc worldRotation) {
         worldRotation.mul(orientation, orientation);
         orientation.normalize();
         yaw = HoldMotion.yaw(orientation, yaw);

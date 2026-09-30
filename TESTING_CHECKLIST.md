@@ -14,13 +14,22 @@ Tick each box as you go. Next to anything that looks wrong, write what you saw.
 - [ ] Look at the cow in third person (F5), and have a second player watch. The beam comes from your eyes and ends on the cow for both of you.
 - [ ] Turn around on the spot. The cow swings round you and keeps facing the same way relative to you.
 - [ ] Wheel up and down. The cow goes out and comes in about a block a notch. It stops about a block from your eyes, and at 128 blocks.
-- [ ] Hold E and move the mouse. Your view stays still and the cow turns (its body left and right, its head up and down). Let go of E: looking works again.
+- [ ] Hold E and move the mouse. Your view stays still and the whole cow turns: mouse left turns the side facing you to the left, mouse right to the right; mouse up tips its top away from you, mouse down toward you. Keep dragging and it rolls right over, upside down, on its side, nose up, any way at all, always about its middle. Let go of E: looking works again.
+  - Its legs still walk and its head still looks about while it is tipped (the animations play on the turned model).
+  - Its hitbox (F3+B) stays upright and axis-aligned however it is tipped; its shadow stays flat on the ground; its name tag (name it) stays upright.
+  - Push the tipped cow against a wall: it stops where its upright box does (the turn is drawn, not physical).
+- [ ] Look up and down while holding the cow. It tips with your view, as a held ship does. Turn round: it keeps its orientation relative to you. (Set `followViewPitch` false in the server config to keep entities level when you look up and down.)
+- [ ] Tip the cow upside down and let go. It rolls back upright over about half a second, smoothly, from where it was (no snap), then walks off. Set `rotation.returnTicks` to 0 in the client config: it snaps instead.
+- [ ] Have a second player watch while you tip the cow: they see the same turn, smoothly, and the same roll back when you let go.
+- [ ] Pick up a ship with the physgun and hold E: mouse left turns its near side left and mouse up tips its top away, the same feel as the cow (`rotation.invertMouse` true in the client config brings VMod's old sense back for both).
+- [ ] Pick up an item on the ground, a boat and a minecart, and tip each one over with E. Each turns about its middle and rolls back when let go.
 - [ ] Push the cow into a wall and into the floor. It stops at them and doesn't pass through or jitter.
 - [ ] Swing quickly and let go. The cow flies off the way you swung and lands (Full Stop may hurt it if it hits a wall hard).
 - [ ] While holding the cow, switch the hotbar slot away from the physgun. The cow drops, keeping its speed.
 
 ## 2. Freezing
 - [ ] Hold a zombie in the air and right click. It stays exactly there, doesn't move, attack or fall, and you are no longer holding it.
+- [ ] Tip a zombie on its side with E and freeze it. It hangs on its side. Leave and come back (or restart): still on its side. Aim at it and press R: it rolls upright and falls. Freeze it on its side again, then grab it: it stays on its side in the hold (no snap) and turns on from there.
 - [ ] Middle click does the same.
 - [ ] Leave the world and come back (or restart the server). The zombie is still frozen in the same spot.
 - [ ] Aim at it and press R (left button up). It falls and walks again.
@@ -35,9 +44,12 @@ Tick each box as you go. Next to anything that looks wrong, write what you saw.
 - [ ] **Primed TNT:** it still explodes on time while held.
 - [ ] **An armor stand, and an experience orb.**
 - [ ] **A chicken jockey (or a zombie on a horse):** aiming at the rider lifts both.
+- [ ] **Projectiles in flight:** shoot an arrow up and grab it before it lands: it stops dead where you hold it, doesn't fall, and doesn't hit you when pulled in. Tip it with E: it points the way it is turned. Swing and let go: it flies off along the throw and sticks where it lands. The same with a thrown snowball or egg (they don't break while held), an ender pearl (it doesn't teleport you while held), a blaze's fireball or a ghast's (held still, then flies on and explodes where it lands), a wither skull, a shulker bullet, a firework rocket. A trident too.
+- [ ] **An Automobility car** (and other modded entities): it is picked up like a boat. Let go in the air: it drops (MKW's driving takes over as it lands). Note whether MKW still steers it while held (it shouldn't move by itself).
 - [ ] **Things it shouldn't pick up** (the physgun goes on seeking, or grabs a ship behind them):
   - an item frame, a painting, a lead knot;
   - an arrow stuck in a wall;
+  - a fishing bobber (cast a rod and aim at the bobber), an eye of ender in flight;
   - the ender dragon;
   - a Create train or bearing contraption;
   - a sleeping villager.

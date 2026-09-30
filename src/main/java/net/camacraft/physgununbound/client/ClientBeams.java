@@ -50,8 +50,10 @@ public final class ClientBeams {
     public static void onMessage(BeamMessage m) {
         if (m.active()) {
             BEAMS.put(m.holderId(), new Beam(m.entityId(), new Vec3(m.offsetX(), m.offsetY(), m.offsetZ()), ticks));
+            ClientModelRotations.held(m.entityId(), m.orientation());
         } else {
-            BEAMS.remove(m.holderId());
+            Beam ended = BEAMS.remove(m.holderId());
+            if (ended != null) ClientModelRotations.release(ended.entityId());
         }
     }
 

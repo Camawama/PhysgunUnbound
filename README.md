@@ -7,7 +7,7 @@ An addon for [VMod](https://modrinth.com/mod/vmod) (SpaceEye's Valkyrien Skies a
 - **Author:** Camawama
 - **Licence:** GPL-3.0 (see `LICENSE.txt`, the same licence as Camafy). To change it, edit `mod_license` in `gradle.properties`, replace `LICENSE.txt`, and update this line.
 - **Requires:** Minecraft 1.20.1, Forge 47.4 or later, and [Camafy](../../CAMAFY) 0.1.13 or later (below 0.2). It only does something when VMod is installed. It is built and tested against VMod 1.9.1, and the parts of VMod it uses are the same in 1.7.1, 1.8.0 and 1.9.0.
-- **Sides:** both, but the server does the work. A client without the mod can still join. It just sees no beam to held entities, and when held it is moved by vanilla motion packets. A client with the mod can join servers without it.
+- **Sides:** both, but the server does the work. A client without the mod can still join. It just sees no beam to held entities, draws them upright however they are turned, and when held it is moved by vanilla motion packets. A client with the mod can join servers without it. Server and client with the mod need the same version (network protocol "2").
 
 ## Controls
 
@@ -18,29 +18,30 @@ These are VMod's physgun controls. Nothing new to learn: the same buttons that w
 | Hold **left mouse** on an entity | Pick it up at the point you aimed at. It is held at that distance in front of your eyes and follows your view. |
 | Move / look around | The grabbed point follows the crosshair. Turning also turns the entity with you. |
 | **Mouse wheel** while holding | Push it out or pull it in, one block per notch (from 1 to 128 blocks, see config). |
-| Hold **E** and move the mouse while holding | Rotate it (the camera stays still, as with ships). Entities show the turn as their heading, and mobs also as their head's pitch. |
-| **Right click** (or middle click) while holding | Freeze it where it is and let go. A frozen entity hangs in the air and doesn't move by itself (no AI, no gravity) until unfrozen. |
-| **R** with the left button up, aiming at a frozen entity | Unfreeze it: it falls, walks and thinks again. Grabbing a frozen entity also unfreezes it. |
+| Hold **E** and move the mouse while holding | Rotate it every way, as a held ship rotates (the camera stays still). Mouse left turns its near side to the left, mouse up tips its top away: the way the mouse goes, for ships too (VMod's own sense had left and right swapped; `rotation.invertMouse` in the client config brings it back). Looking up and down tips it with your view as well, like a ship (`followViewPitch`). Let go and it rolls back upright over half a second (`rotation.returnTicks`). |
+| **Right click** (or middle click) while holding | Freeze it where it is and let go. A frozen entity hangs in the air, turned the way you held it, and doesn't move by itself (no AI, no gravity) until unfrozen. |
+| **R** with the left button up, aiming at a frozen entity | Unfreeze it: it rolls upright, falls, walks and thinks again. Grabbing a frozen entity also unfreezes it, and carries on from the way it was turned. |
 | Let go of **left mouse** | Let go. The entity keeps the speed it had, so swinging the physgun and letting go throws it, as in Garry's Mod. |
 
 Seeking works as VMod's does. Hold the left button and sweep the crosshair, and the physgun takes the first thing it touches. If an entity is in front of a ship block, the entity is picked up. If nothing is in front of the ship, VMod picks up the ship as usual.
 
 ## What it picks up
 
-- **Yes:** mobs and animals, items, experience orbs, boats, minecarts (a cart on a rail is lifted off it), falling blocks (held sand doesn't land or run out of air time), primed TNT (it still explodes), armor stands, end crystals, and other players.
+- **Yes: anything with a body**, from any mod, unless it is on the list below. Mobs and animals, items, experience orbs, boats, minecarts (a cart on a rail is lifted off it), falling blocks (held sand doesn't land or run out of air time), primed TNT (it still explodes), armor stands, end crystals, other players, modded vehicles (Automobility's cars), and **projectiles in flight**: arrows, tridents, snowballs, eggs, ender pearls, potions, fireballs, wither skulls, shulker bullets, fireworks, and modded ones built on those. A held projectile stops flying (no gravity, no acceleration, it hits nothing, not even you) and sits where you put it; let go, it flies on with the throw, an arrow aiming itself along it.
 - **Stacks:** aiming at something that rides something picks up the whole stack from the bottom. A zombie on a chicken lifts both, and a player on a horse lifts the horse with them on it.
 - **Entities on ships:** a mob standing on a Valkyrien Skies deck is picked up, and Valkyrien Skies stops carrying it with the ship.
 - **Never:**
   - the holder, or anything carrying the holder;
   - spectators;
   - hanging entities (item frames, paintings, lead knots), which break if moved;
-  - projectiles (arrows, tridents, fireballs), which move themselves;
+  - an arrow stuck in a block;
   - sleeping mobs and players;
   - entities that are part of a ship (they live in its shipyard: seats, frames);
-  - anything another mod moves: Camafy's `MOTION` claim (MKW's karts and drivers, a player on a Grapple Unbound rope);
+  - anything another mod scripts the whole physics of, every aspect of Camafy's `PhysicsOwnership` (a kart in an MKW race, MKW's hazards). A claim on its motion alone doesn't stop the physgun: the hold claims everything, and the mods that arbitrate `MOTION` (WallJump, Grapple Unbound) stand down for it. MKW's free-roam karts don't stand down yet: while held, the kart can't move itself (its own `move` is skipped), but MKW keeps driving it underneath, so a thrown kart drops rather than flies;
   - anything the gravity mod anchors to a surface (standing on Gravity Unbound's plating, Surface Cling);
   - anything a minigame protects (Camafy's `MatchPolicies.canHarm`, which Game Start provides);
-  - types in `#physgununbound:ungrabbable`, or in the `ungrabbable` config list. The tag holds the ender dragon, markers, displays, interaction boxes, area clouds, evoker fangs, lightning, and Create's contraptions, trains, seats and glue.
+  - types in `#physgununbound:ungrabbable`, or in the `ungrabbable` config list. The tag holds the ender dragon; markers, displays and interaction boxes (data only); item frames, paintings and lead knots; fishing bobbers and eyes of ender (they fly themselves); and Create's contraptions, trains, seats and glue.
+- **How the tag applies to modded entities:** every entity has a registry id (`automobility:automobile`, `supplementaries:bomb`). The tag is the data file `data/physgununbound/tags/entity_types/ungrabbable.json`, a list of those ids; a datapack (or another mod's data) can add ids to it with a file of the same name (`"replace": false`), and an entry written as `{ "id": "somemod:thing", "required": false }` is skipped when that mod isn't installed. Anything not listed is picked up, so a modded entity needs no entry to work. The `ungrabbable` config list does the same without a datapack, and takes wildcards (`create:*`) and `/regex/`.
 - **Players:** only if `grabPlayers` is on (it is by default) and every minigame host allows it. A held player can't be frozen; right click just lets them go.
 
 ## How a held entity moves
@@ -60,7 +61,7 @@ A held entity runs the same law:
 - **Collisions:** the entity is moved through its own collision code, so walls, floors and ship hulls stop it. The part of its speed going into the wall is lost.
 - **Top speed:** `maxSpeed`, 70 blocks a second by default.
 - **Its own movement is paused:** the entity doesn't walk, fall or drift while held. The rest of its tick still runs: a creeper still fuses, a zombie still swings, and an item still ages.
-- **Turning:** the entity keeps its facing relative to you as you turn, like a held ship. Looking up and down doesn't tilt it, because entities can't lean. The E-drag turns it freely.
+- **Turning:** the entity keeps its orientation relative to your view as you turn, like a held ship: turning turns it, and looking up and down tips it (`followViewPitch`, on by default; off keeps it level). The E-drag turns it every way. What its own renderer can show goes into the entity itself (its heading; for an arrow the heading and the pitch), so a client without the mod and the entity's own code see it face the right way; the rest of the turn, the *model rotation*, is drawn by clients with the mod on top, about the entity's centre (`hold/ModelPose`, `client/ClientModelRotations`). Its hitbox never turns. Let go, or unfrozen, it eases back upright over `rotation.returnTicks` (client, 10). A frozen entity keeps its turn (in its persistent data, so through saves; every client that starts seeing it is told), and a hold taken out of a freeze, or over from another player, carries on from it.
 
 **Players** are moved by their own client, where their movement is simulated:
 
@@ -80,7 +81,8 @@ A held entity runs the same law:
 ## Compatibility
 
 - **VMod:**
-  - **The hook:** one mixin reads the physgun's buttons at the end of `PlayerPhysgunState.fromPkt`, where VMod's own handler reads them. The mod calls a few public methods on VMod's `ServerPhysgunState` and `PlayerPhysgunState`, and removes VMod's own seeking beam while an entity is held. Everything else is VMod's, untouched: ships, the toolgun, the physgun's client side.
+  - **The hook:** one mixin reads the physgun's buttons at the end of `PlayerPhysgunState.fromPkt`, where VMod's own handler reads them. The mod calls a few public methods on VMod's `ServerPhysgunState` and `PlayerPhysgunState`, and removes VMod's own seeking beam while an entity is held. Everything else is VMod's, untouched: ships, the toolgun.
+  - **The rotate drag's sense:** one client mixin negates the mouse-X angle where VMod's client builds the drag's rotation (`ClientPhysgunState.handleMouseMovement`), so mouse left turns the near side left, for ships and entities alike (`rotation.invertMouse` restores VMod's sense). The method is named as Kotlin compiles it (`handleMouseMovement$VMod`); if a VMod update renames it, the drag keeps VMod's sense and nothing else changes.
   - **If VMod changes:** the hook is in its own mixin config that isn't required, and names its target by its full descriptor. If a class, method or field it uses is missing after a VMod update, the server logs one line at start ("VMod's physgun doesn't work the way Physgun Unbound expects ...") and the addon does nothing. VMod keeps working.
 - **Valkyrien Skies:**
   - **Through Camafy:** the entity search ends at the first world or ship block (Camafy's `Ships.clip`), entities in a shipyard are left to their ship, and a grabbed entity is released from VS's deck carrying (`ShipEntities.letGo`) on the side that simulates it.
@@ -94,8 +96,12 @@ A held entity runs the same law:
 - **Vanilla Backport:** no overlap (it doesn't touch entity movement or VMod).
 - **Mixins:**
   - `Entity.move` (HEAD, cancellable): skips a held or frozen entity's own `MoverType.SELF` move on the server.
+  - `AbstractArrow.tick`, `ThrowableProjectile.tick`, `AbstractHurtingProjectile.tick`, `ShulkerBullet.tick`, `LlamaSpit.tick`, `FireworkRocketEntity.tick` (HEAD, cancellable): a held or frozen projectile runs only `Entity.baseTick` on the server (projectiles move themselves in their ticks, not through `move`).
+  - `AbstractArrow.inGround` (accessor): stuck arrows aren't picked up.
   - `ServerGamePacketListenerImpl.tick` (HEAD): resets the flying-kick counters of held players.
+  - `EntityRenderDispatcher.render` (client, around the renderer's `render` call): draws a held or frozen entity's model turned; the shadow, hitbox and name tag stay put, and GUI portraits (Camafy's `GuiEntityRender`) are left alone.
   - `PlayerPhysgunState.fromPkt` (TAIL): VMod's messages.
+  - `ClientPhysgunState.handleMouseMovement$VMod` (client, `@ModifyArg`, optional): the rotate drag's mouse-X sense.
 
 ## Config
 
@@ -110,13 +116,21 @@ A held entity runs the same law:
 | `maxDistance` | `128` | The farthest it can be pushed out. It stops at the edge of loaded chunks. |
 | `maxSpeed` | `70` | The fastest a held entity moves, and so the fastest throw, in blocks per second (3.5 blocks a tick). |
 | `fallbackSpring`, `fallbackDamping` | `160`, `20` | The hold's constants when VMod's own (`PCONST`, `DCONST` in VMod's server config) can't be read. |
+| `followViewPitch` | `true` | A held entity tips with the holder's view when they look up and down, as a ship does. Off, it only turns with the view's heading. |
 | `ungrabbable` | `["#physgununbound:ungrabbable"]` | Entity ids, `#tags`, wildcards (`create:*`) or `/regex/` never picked up. |
+
+`config/physgununbound-client.toml`, section `rotation`:
+
+| Key | Default | What it does |
+|---|---|---|
+| `invertMouse` | `false` | The rotate drag turns things the way the mouse goes (mouse left: near side left). `true` is VMod's own sense. Applies to ships too. |
+| `returnTicks` | `10` | How long a let-go or unfrozen entity takes to roll back upright, in ticks. `0` snaps. |
 
 ## Building and testing
 
 ```
 ./gradlew build                        # the release jar: build/libs/physgununbound-<version>.jar
-./gradlew runGameTestServer            # 12 gametests of the hold itself, no VMod needed
+./gradlew runGameTestServer            # 17 gametests of the hold itself, no VMod needed
 ./gradlew runGameTestServer -Pvmod     # the same plus 2 with the real VMod, VS, Kotlin for Forge and Architectury
 ```
 
@@ -124,10 +138,12 @@ A held entity runs the same law:
   - a held mob follows the target and swings round with the holder;
   - letting go throws it with the hold's speed and clears every claim;
   - the wheel and the rotate drag;
+  - the rotate drag tips the whole model: the orientation, the heading kept, no head pitch, the grabbed point turned with it; a frozen entity keeps the pose and a hold out of the freeze or from a second holder carries on from it; an arrow's own heading and pitch follow the hold;
   - walls stop it;
   - items, a cart on a rail, a boat, falling sand and an armor stand are held (and survive it);
+  - an arrow, a snowball and a fireball in flight are held still and fly on when let go; a stuck arrow and a fishing bobber are refused;
   - a held player is steered and claimed;
-  - the refusals (self, spectator, item frame, interaction box, another mod's claim, a minigame's rule);
+  - the refusals (self, spectator, item frame, interaction box, another mod's claim on every aspect, a minigame's rule), and that a claim on motion alone doesn't refuse;
   - removal and a dead holder end the hold;
   - freezing, then unfreezing with R;
   - a second holder takes over;
@@ -145,18 +161,19 @@ The gametest world is flat and fresh each run (`run-gametest`). In-game checks a
 - `hold/`: the holds and their rules.
   - `Holds`: grab, tick, input, end.
   - `HoldMotion`: VMod's spring and damper, the orientation maths.
+  - `ModelPose`: what of an orientation an entity's own renderer shows, the model rotation left for clients to draw, and a frozen entity's kept pose.
   - `Grabbing`: the ray and the refusals.
   - `Freezing`, `HeldEntities`: the claims and the move stop.
   - `HoldEvents`: the Forge events.
   - `PhysgunInput`: one physgun message.
 - `vmod/`: the bridge to VMod. `Vmod` is the only door. `VmodBridgeImpl` and `VmodPackets` name VMod's classes and only load with VMod.
 - `mixin/`, `mixin/vmod/`: the three hooks, in two configs.
-- `network/`: the beam message and the held-player message (Camafy channel `physgununbound:main`, optional on both sides).
-- `client/`: the beam (drawn like VMod's `PhysgunRayRenderer`) and the held player's side of a hold.
+- `network/`: the beam message (with the held entity's orientation), the frozen-pose message and the held-player message (Camafy channel `physgununbound:main`, protocol "2", optional on both sides: server and client with the mod need the same version).
+- `client/`: the beam (drawn like VMod's `PhysgunRayRenderer`), the turned models of held and frozen entities, and the held player's side of a hold.
 
 ## Known limits
 
-- Entities can't lean, so the rotate key turns only their heading (and a mob's head up and down). A held ship turns every way.
-- A held vehicle a player drives (a boat, a horse) is moved by that player's client, which applies its own boat physics on top, so it hangs a little lower than a mob would.
-- Projectiles can't be picked up.
+- The turn is drawn, not physical: a held entity's hitbox stays upright and axis-aligned however its model is tipped, so a tipped cow pushed into a wall stops where its upright box does. Its own animations (a walking leg, a turning head) play on the turned model.
+- A held vehicle a player drives (a boat, a horse) is moved by that player's client, which applies its own boat physics on top, so it hangs a little lower than a mob would. Players and driven vehicles aren't turned.
+- A modded projectile that moves itself outside the vanilla projectile ticks (its own `tick` without calling the base one) keeps flying while held; tag it ungrabbable.
 - Without this mod on a held player's client, the hold works from positions that arrive a ping late, so it can wobble on a laggy connection.
