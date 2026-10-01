@@ -1,6 +1,7 @@
 package net.camacraft.physgununbound.hold;
 
 import com.google.common.collect.MapMaker;
+import net.camacraft.camafy.compat.gravity.Gravity;
 import net.camacraft.camafy.physics.PhysicsAspect;
 import net.camacraft.camafy.physics.PhysicsOwnership;
 import net.camacraft.physgununbound.PhysgunUnbound;
@@ -40,6 +41,8 @@ public final class HeldEntities {
     private static final AtomicInteger BLOCKING = new AtomicInteger();
     /** Set while the hold itself moves an entity (server thread). */
     private static boolean ownMove;
+    /** Entity ids this client knows the server keeps still (held: it sees the beam; frozen: it was told the pose). */
+    private static volatile Set<Integer> clientStill = Set.of();
 
     private HeldEntities() {}
 
@@ -104,15 +107,39 @@ public final class HeldEntities {
         return SERVER_MOVED.contains(entity) || FROZEN.contains(entity);
     }
 
-    /** Moves the entity through its own collision code, as its own movement would. Server thread. */
-    static void move(Entity entity, Vec3 delta) {
+    /**
+     * Moves the entity by {@code worldDelta} (world axes) through its own collision code, as its
+     * own movement would. Server thread.
+     *
+     * <p>The gravity mod reads a {@code MoverType.SELF} movement in the entity's <i>movement
+     * frame</i> and turns it into the world (Gravity Unbound's {@code Entity.move} hook, the
+     * convention Camafy's {@code Gravity.movementToWorld} describes), whether or not something else
+     * claims the entity's motion. So the world delta is converted into that convention first: a cow
+     * held in a sideways plating field follows the beam exactly instead of the beam's movement
+     * turned by the field.
+     */
+    static void move(Entity entity, Vec3 worldDelta) {
         boolean outer = ownMove;
         ownMove = true;
         try {
-            entity.move(MoverType.SELF, delta);
+            entity.move(MoverType.SELF, Gravity.worldToMovement(entity, worldDelta));
         } finally {
             ownMove = outer;
         }
+    }
+
+    /**
+     * Whether this client's copy of {@code entity} is one the server keeps still (held or frozen),
+     * so its own tick must not move it either. Client side; one volatile read.
+     */
+    public static boolean clientHoldsStill(Entity entity) {
+        Set<Integer> ids = clientStill;
+        return !ids.isEmpty() && ids.contains(entity.getId());
+    }
+
+    /** The client's current knowledge (every tick, from the beams and frozen poses it has seen). */
+    public static void clientStill(Set<Integer> ids) {
+        clientStill = ids.isEmpty() ? Set.of() : ids;
     }
 
     /** Forgets everything (server stop). The client's own claim is dropped by its hold ending. */

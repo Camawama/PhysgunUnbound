@@ -2,6 +2,7 @@ package net.camacraft.physgununbound.mixin.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.camacraft.camafy.client.render.BlobShadow;
+import net.camacraft.camafy.client.render.ShipShadows;
 import net.camacraft.camafy.client.render.GuiEntityRender;
 import net.camacraft.physgununbound.client.ClientModelRotations;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -25,6 +26,10 @@ import java.util.ArrayDeque;
  * around its renderer's own call. Only the model and its shadow: the hitbox (F3+B) and the name
  * tag, which the dispatcher draws after the renderer, stay as they are, and so does a GUI portrait
  * ({@link GuiEntityRender}).
+ *
+ * <p>A renderer that faces the camera (a thrown egg or snowball, an item, an experience orb: see
+ * {@link ClientModelRotations#drawsTurned}) is never turned: a billboard turned about the entity
+ * stops facing the camera. Its shadow still follows the hold.
  *
  * <p>The pose is pushed before the renderer's call and popped after it. Whether one was pushed is
  * kept on a stack, since a renderer may draw other entities through the dispatcher in between.
@@ -52,7 +57,9 @@ public abstract class EntityRenderDispatcherMixin {
                     target = "Lnet/minecraft/client/renderer/entity/EntityRenderer;render(Lnet/minecraft/world/entity/Entity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"))
     private void physgununbound$turnHeldModel(Entity entity, double x, double y, double z, float yaw, float partialTick,
                                                PoseStack pose, MultiBufferSource buffers, int light, CallbackInfo ci) {
-        Quaternionf turn = GuiEntityRender.active() ? null : ClientModelRotations.rotation(entity, partialTick);
+        Quaternionf turn = GuiEntityRender.active()
+                || !ClientModelRotations.drawsTurned((EntityRenderDispatcher) (Object) this, entity)
+                ? null : ClientModelRotations.rotation(entity, partialTick);
         if (turn == null) {
             physgununbound$turned.push(Boolean.FALSE);
             return;
@@ -93,6 +100,7 @@ public abstract class EntityRenderDispatcherMixin {
         }
         BlobShadow.Blob blob = BlobShadow.turnedAboutCentre(entity, partialTick,
                 ClientModelRotations.modelUp(entity, partialTick, turn), radius);
-        BlobShadow.render(pose, buffers, entity, weight, partialTick, level, blob);
+        // on a ship's deck the oval falls on the deck (Camafy 0.1.18), on the ground otherwise
+        BlobShadow.render(pose, buffers, entity, weight, partialTick, level, blob, ShipShadows.under(entity, partialTick));
     }
 }

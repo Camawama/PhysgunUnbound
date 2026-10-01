@@ -27,8 +27,11 @@ Tick each box as you go. Next to anything that looks wrong, write what you saw.
 - [ ] Swing quickly and let go. The cow flies off the way you swung and lands (Full Stop may hurt it if it hits a wall hard).
 - [ ] While holding the cow, switch the hotbar slot away from the physgun. The cow drops, keeping its speed.
 
+- [ ] Grab a thrown egg or snowball in flight and hold E: the sprite keeps facing you whatever you do with the mouse (it never turns edge-on); its shadow on the ground still turns. A dropped item and an experience orb likewise.
+
 ## 2. Freezing
 - [ ] Hold a zombie in the air and right click. It stays exactly there, doesn't move, attack or fall, and you are no longer holding it.
+- [ ] Throw a Loyalty trident at a mob, grab it as it flies back, freeze it. It hangs perfectly still (no creeping, no stutter) on your screen and on a second player's; R brings it back to you. A trident without Loyalty, an arrow and a snowball frozen in flight sit still the same way.
 - [ ] Tip a zombie on its side with E and freeze it. It hangs on its side. Leave and come back (or restart): still on its side. Aim at it and press R: it rolls upright and falls. Freeze it on its side again, then grab it: it stays on its side in the hold (no snap) and turns on from there.
 - [ ] Middle click does the same.
 - [ ] Leave the world and come back (or restart the server). The zombie is still frozen in the same spot.
@@ -74,6 +77,7 @@ Tick each box as you go. Next to anything that looks wrong, write what you saw.
 - [ ] Set `grabPlayers = false`: A can't pick up B, or a horse B rides.
 
 ## 6. Other mods
+- [ ] **Gravity Unbound:** stand next to plating that makes a sideways or inverted field and grab a cow outside it. Carry it into the field: it follows the crosshair exactly, no drift along the field's "down", no fight (it isn't yanked toward the plates while you hold it). Let go inside the field: it flies the way you swung it, then the field's gravity takes it. Freeze it inside the field: it hangs still. Grab a cow that is standing on the plating: it comes off and follows you.
 - [ ] **Full Stop:**
   - a held mob slammed into walls takes no crash damage while held;
   - a thrown one hitting a wall does;

@@ -3,7 +3,18 @@ package net.camacraft.physgununbound.client;
 import net.camacraft.physgununbound.PuConfig;
 import net.camacraft.physgununbound.hold.ModelPose;
 import net.minecraft.client.Minecraft;
+import net.camacraft.physgununbound.PuTags;
+import net.camacraft.physgununbound.hold.HeldEntities;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.entity.DragonFireballRenderer;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.ExperienceOrbRenderer;
+import net.minecraft.client.renderer.entity.FireworkEntityRenderer;
+import net.minecraft.client.renderer.entity.FishingHookRenderer;
+import net.minecraft.client.renderer.entity.ItemEntityRenderer;
+import net.minecraft.client.renderer.entity.ThrownItemRenderer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import org.jetbrains.annotations.Nullable;
@@ -12,6 +23,8 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -27,6 +40,21 @@ import java.util.Map;
  * it is unfrozen or gone.
  */
 public final class ClientModelRotations {
+    /**
+     * Whether {@code entity}'s model is drawn turned at all. A renderer that faces the camera (a
+     * thrown item's sprite, a dropped item, an experience orb, a dragon fireball, a bobber, a
+     * firework, and anything in {@code #physgununbound:billboards}) stays as it is: turned about
+     * the entity it would stop facing the camera. The entity still carries its orientation (its
+     * shadow follows it, and a throw uses the hold's motion, not the turn).
+     */
+    public static boolean drawsTurned(EntityRenderDispatcher dispatcher, Entity entity) {
+        if (entity.getType().is(PuTags.BILLBOARDS)) return false;
+        EntityRenderer<?> renderer = dispatcher.getRenderer(entity);
+        return !(renderer instanceof ThrownItemRenderer || renderer instanceof ItemEntityRenderer
+                || renderer instanceof ExperienceOrbRenderer || renderer instanceof DragonFireballRenderer
+                || renderer instanceof FishingHookRenderer || renderer instanceof FireworkEntityRenderer);
+    }
+
     /** A held entity's turn not refreshed for this many ticks has been let go (its beam end was missed). */
     private static final int TIMEOUT = 10;
     /** Turns smaller than this (radians) aren't worth a pose push. */
@@ -97,9 +125,13 @@ public final class ClientModelRotations {
 
     public static void tick() {
         ticks++;
-        if (STATES.isEmpty()) return;
+        if (STATES.isEmpty()) {
+            HeldEntities.clientStill(Set.of());
+            return;
+        }
         ClientLevel level = Minecraft.getInstance().level;
         int returnTicks = PuConfig.CLIENT.returnTicks();
+        Set<Integer> still = new HashSet<>();
         for (Iterator<Map.Entry<Integer, State>> it = STATES.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<Integer, State> entry = it.next();
             State state = entry.getValue();
@@ -109,12 +141,16 @@ public final class ClientModelRotations {
                 if (ticks - state.releasedAt > returnTicks) it.remove();
             } else if (!state.frozen && ticks - state.seen > TIMEOUT) {
                 release(entry.getKey());
+            } else {
+                still.add(entry.getKey()); // held this tick, or frozen: the server keeps it where it is
             }
         }
+        HeldEntities.clientStill(still);
     }
 
     public static void clear() {
         STATES.clear();
+        HeldEntities.clientStill(Set.of());
     }
 
     /**

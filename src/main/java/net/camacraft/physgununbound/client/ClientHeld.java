@@ -1,5 +1,6 @@
 package net.camacraft.physgununbound.client;
 
+import net.camacraft.camafy.compat.gravity.Gravity;
 import net.camacraft.camafy.compat.scale.EntityScale;
 import net.camacraft.camafy.compat.vs.ShipEntities;
 import net.camacraft.camafy.compat.vs.ShipRef;
@@ -80,9 +81,9 @@ public final class ClientHeld {
         Vec3 pos = entity.position();
         Vec3 velocity = lastPos != null
                 ? pos.subtract(lastPos).scale(20.0)
-                : EntityScale.realVelocity(entity, entity.getDeltaMovement()).scale(20.0);
+                : EntityScale.realVelocity(entity, Gravity.getWorldVelocity(entity)).scale(20.0);
         HoldMotion.Step step = HoldMotion.step(pos, velocity, target, spring, damping, maxSpeed);
-        entity.setDeltaMovement(EntityScale.velocityFor(entity, step.vel().scale(0.05)));
+        Gravity.setWorldVelocity(entity, EntityScale.velocityFor(entity, step.vel().scale(0.05))); // world axes, whatever the player's gravity
         entity.resetFallDistance();
         if (ShipEntities.isCarried(entity)) ShipEntities.letGo(entity, ShipRef.NO_ID, false);
         lastPos = pos;

@@ -1,5 +1,6 @@
 package net.camacraft.physgununbound.hold;
 
+import net.camacraft.camafy.compat.gravity.Gravity;
 import net.camacraft.camafy.compat.scale.EntityScale;
 import net.camacraft.camafy.compat.vs.ShipEntities;
 import net.camacraft.camafy.compat.vs.ShipRef;
@@ -127,7 +128,7 @@ public final class Holds {
         Vec3 eye = holder.getEyePosition();
         double distance = Mth.clamp(hitPoint.distanceTo(eye), cfg.minDistance(), cfg.maxDistance());
         Hold.Mode mode = isClientSimulated(entity) ? Hold.Mode.CLIENT : Hold.Mode.SERVER;
-        Vec3 velocity = EntityScale.realVelocity(entity, entity.getDeltaMovement()).scale(20.0);
+        Vec3 velocity = EntityScale.realVelocity(entity, Gravity.getWorldVelocity(entity)).scale(20.0);
         Hold hold = new Hold(holder, entity, requirePhysgun, mode,
                 spring > 0.0 && Double.isFinite(spring) ? spring : cfg.fallbackSpring(),
                 damping >= 0.0 && Double.isFinite(damping) ? damping : cfg.fallbackDamping(),
@@ -173,7 +174,8 @@ public final class Holds {
             if (hold.savedCanUseRail != null && entity instanceof AbstractMinecart cart) cart.setCanUseRail(hold.savedCanUseRail);
             if (reason != End.GONE) {
                 Vec3 perTick = reason == End.FROZEN ? Vec3.ZERO : hold.velocity.scale(0.05);
-                entity.setDeltaMovement(EntityScale.velocityFor(entity, perTick));
+                // world axes: let go inside a gravity field it leaves with the throw's speed, not the throw turned by the field
+                Gravity.setWorldVelocity(entity, EntityScale.velocityFor(entity, perTick));
                 entity.hasImpulse = true;
             }
         } else {
@@ -380,7 +382,7 @@ public final class Holds {
         double vz = blocked(moved.z, planned.z) ? moved.z * 20.0 : velocity.z;
         hold.velocity = new Vec3(vx, vy, vz);
 
-        entity.setDeltaMovement(EntityScale.velocityFor(entity, hold.velocity.scale(0.05)));
+        Gravity.setWorldVelocity(entity, EntityScale.velocityFor(entity, hold.velocity.scale(0.05)));
         entity.hasImpulse = true; // send the new position (and speed) this tick
         if (ShipEntities.isCarried(entity)) ShipEntities.letGo(entity, ShipRef.NO_ID, false);
         keepAlive(entity);
@@ -411,7 +413,7 @@ public final class Holds {
         // position it last reported. Laggier than its own client doing it, but it still holds.
         HoldMotion.Step step = HoldMotion.step(entity.position(), hold.velocity, entityTarget, hold.spring, hold.damping, maxSpeed);
         hold.velocity = step.vel();
-        entity.setDeltaMovement(EntityScale.velocityFor(entity, hold.velocity.scale(0.05)));
+        Gravity.setWorldVelocity(entity, EntityScale.velocityFor(entity, hold.velocity.scale(0.05)));
         if (entity == simulator) {
             simulator.connection.send(new ClientboundSetEntityMotionPacket(simulator));
         } else {
