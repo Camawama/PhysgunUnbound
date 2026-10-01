@@ -9,6 +9,7 @@ import net.minecraft.world.entity.Entity;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaterniond;
 import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -114,6 +115,16 @@ public final class ClientModelRotations {
 
     public static void clear() {
         STATES.clear();
+    }
+
+    /**
+     * Where the model's own up axis points in the world once drawn with {@code turn} (from
+     * {@link #rotation}) on top of the entity's own renderer turn: the whole orientation's up, for
+     * the shadow. {@code (0, 1, 0)} for an upright model.
+     */
+    public static Vector3f modelUp(Entity entity, float partialTick, Quaternionf turn) {
+        Quaternionf orientation = new Quaternionf(turn).mul(new Quaternionf(ModelPose.base(entity, partialTick)));
+        return orientation.transform(new Vector3f(0.0F, 1.0F, 0.0F)).normalize();
     }
 
     /**

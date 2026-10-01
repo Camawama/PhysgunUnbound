@@ -129,23 +129,31 @@ public final class PuConfig {
     }
 
     public static final class Client {
-        public final ForgeConfigSpec.BooleanValue invertMouse;
+        public final ForgeConfigSpec.BooleanValue invertMouseX;
+        public final ForgeConfigSpec.BooleanValue invertMouseY;
         public final ForgeConfigSpec.IntValue returnTicks;
 
         Client(ForgeConfigSpec.Builder b) {
             b.push("rotation");
-            invertMouse = b.comment("The rotate drag (E and the mouse) turns what is held the way the mouse goes: mouse left",
-                            "turns its near side to the left, mouse up tips its top away. That is the corrected feel, for",
-                            "ships and entities alike. Set true for VMod's own sense (mouse left turned the near side right).")
-                    .define("invertMouse", false);
+            invertMouseX = b.comment("The rotate drag (E and the mouse) turns what is held the way the mouse goes: mouse left",
+                            "moves its near side to the left, mouse right to the right. That is the corrected feel, for",
+                            "ships and entities alike. Set true for VMod's own sense (mouse left moved the near side right).")
+                    .define("invertMouseX", false);
+            invertMouseY = b.comment("The same for up and down: mouse up moves the near side up (the top tips away), mouse",
+                            "down moves it down. Set true for VMod's own sense (mouse up dropped the near side).")
+                    .define("invertMouseY", false);
             returnTicks = b.comment("How long an entity that was held turned takes to turn back upright once let go or",
                             "unfrozen, in ticks (20 a second). 0 snaps.")
                     .defineInRange("returnTicks", 10, 0, 200);
             b.pop();
         }
 
-        public boolean invertMouse() {
-            return ConfigUtil.getOr(invertMouse);
+        public boolean invertMouseX() {
+            return ConfigUtil.getOr(invertMouseX);
+        }
+
+        public boolean invertMouseY() {
+            return ConfigUtil.getOr(invertMouseY);
         }
 
         public int returnTicks() {

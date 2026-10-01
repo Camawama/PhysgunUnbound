@@ -6,16 +6,19 @@ and this project adheres to Semantic Versioning (https://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+- Fixed before release: the shadow redirect's handler was static while the dispatcher's render method is not, which Mixin refuses at game start (the gametest server never loads client mixins, so only a real client showed it).
 - The rotate drag (E and the mouse) turns a held entity every way, as it turns a held ship: the whole model tips and rolls about its centre. Mobs, animals, items, boats, carts, arrows, anything. What the entity's own renderer can show (its heading; an arrow's heading and pitch) goes into the entity itself, the rest is drawn by clients with the mod on top (`hold/ModelPose`, `client/ClientModelRotations`, a client mixin around `EntityRenderDispatcher`'s renderer call); the hitbox never turns. Looking up and down tips a held entity with the view too, like a ship (server `followViewPitch`, on).
 - Let go or unfrozen, a turned entity rolls back upright over half a second (client `rotation.returnTicks`, 10) instead of snapping.
 - A frozen entity keeps the way it was turned, through saves (its persistent data) and for every client that starts seeing it; grabbing it again, or a second player taking it over, carries on from that pose.
 - Projectiles in flight are picked up: arrows, tridents, snowballs, eggs, ender pearls, potions, fireballs, wither skulls, shulker bullets, fireworks, and modded ones built on the vanilla projectile classes. Held, they stop flying (their tick is cut to `Entity.baseTick` on the server: no gravity, no acceleration, nothing hit); let go, they fly on with the throw. A stuck arrow isn't picked up.
 - Anything with a body is picked up unless it is tagged, so entities from other mods (Automobility's cars) work without an entry. The tag `#physgununbound:ungrabbable` now also lists item frames, paintings, lead knots, fishing bobbers and eyes of ender; the README explains how the tag reaches modded entities.
-- Client config `rotation`: `invertMouse` (false) and `returnTicks` (10).
+- Client config `rotation`: `invertMouseX` and `invertMouseY` (false) and `returnTicks` (10).
+- A turned entity's shadow turns with it: the round blob becomes an ellipse along the way the model lies, centred under its middle and fading from its lowest point, and rounds off again as it rolls upright (Camafy 0.1.16's `BlobShadow`, the same look Gravity Unbound gives a body in another gravity).
 - Gametests: 17 (was 12): the whole-model tip, the kept pose of a frozen or taken-over entity, an arrow's facing, projectiles held and thrown on, stuck arrows and bobbers refused, and a claim on motion alone not refusing.
 
 ### Changed
-- The rotate drag turns things the way the mouse goes: mouse left turns the near side to the left, mouse up tips the top away. VMod's own sense had left and right swapped (its mouse-Y drag dragged the near face, its mouse-X drag turned it the other way). Fixed for ships and entities alike through one client mixin on VMod's `ClientPhysgunState.handleMouseMovement` (it negates the mouse-X angle); `rotation.invertMouse` brings VMod's sense back.
+- The rotate drag moves the near side of what is held the way the mouse goes: left, right, up (the top tips away) and down. VMod's own sense moved the far side on both axes (mouse left turned the near side right; mouse up dropped it: the owner's report after the first fix, which had only turned left and right round). Fixed for ships and entities alike through one client mixin on VMod's `ClientPhysgunState.handleMouseMovement` (it negates both angles); `rotation.invertMouseX` / `invertMouseY` bring VMod's sense back per axis.
+- Needs Camafy 0.1.16.
 - Another mod's claim on an entity's motion alone no longer stops the physgun (the hold claims every aspect, and the mods that arbitrate `MOTION` stand down for it). Only an entity another mod scripts the whole physics of is refused: a kart in an MKW race, MKW's hazards. MKW's free-roam karts are picked up; MKW keeps driving them underneath until it yields to the hold's claim.
 - A held mob's head is no longer pitched by the hold (the whole body tips instead).
 - Network protocol "2": the beam carries the held entity's orientation, and a frozen-pose message was added. Server and client need the same jar.

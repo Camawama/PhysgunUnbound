@@ -18,7 +18,7 @@ These are VMod's physgun controls. Nothing new to learn: the same buttons that w
 | Hold **left mouse** on an entity | Pick it up at the point you aimed at. It is held at that distance in front of your eyes and follows your view. |
 | Move / look around | The grabbed point follows the crosshair. Turning also turns the entity with you. |
 | **Mouse wheel** while holding | Push it out or pull it in, one block per notch (from 1 to 128 blocks, see config). |
-| Hold **E** and move the mouse while holding | Rotate it every way, as a held ship rotates (the camera stays still). Mouse left turns its near side to the left, mouse up tips its top away: the way the mouse goes, for ships too (VMod's own sense had left and right swapped; `rotation.invertMouse` in the client config brings it back). Looking up and down tips it with your view as well, like a ship (`followViewPitch`). Let go and it rolls back upright over half a second (`rotation.returnTicks`). |
+| Hold **E** and move the mouse while holding | Rotate it every way, as a held ship rotates (the camera stays still). Its near side follows the mouse: left, right, up (the top tips away) and down, for ships too (VMod's own sense moved the far side instead; `rotation.invertMouseX` / `invertMouseY` in the client config bring it back per axis). Looking up and down tips it with your view as well, like a ship (`followViewPitch`). Let go and it rolls back upright over half a second (`rotation.returnTicks`). |
 | **Right click** (or middle click) while holding | Freeze it where it is and let go. A frozen entity hangs in the air, turned the way you held it, and doesn't move by itself (no AI, no gravity) until unfrozen. |
 | **R** with the left button up, aiming at a frozen entity | Unfreeze it: it rolls upright, falls, walks and thinks again. Grabbing a frozen entity also unfreezes it, and carries on from the way it was turned. |
 | Let go of **left mouse** | Let go. The entity keeps the speed it had, so swinging the physgun and letting go throws it, as in Garry's Mod. |
@@ -82,7 +82,7 @@ A held entity runs the same law:
 
 - **VMod:**
   - **The hook:** one mixin reads the physgun's buttons at the end of `PlayerPhysgunState.fromPkt`, where VMod's own handler reads them. The mod calls a few public methods on VMod's `ServerPhysgunState` and `PlayerPhysgunState`, and removes VMod's own seeking beam while an entity is held. Everything else is VMod's, untouched: ships, the toolgun.
-  - **The rotate drag's sense:** one client mixin negates the mouse-X angle where VMod's client builds the drag's rotation (`ClientPhysgunState.handleMouseMovement`), so mouse left turns the near side left, for ships and entities alike (`rotation.invertMouse` restores VMod's sense). The method is named as Kotlin compiles it (`handleMouseMovement$VMod`); if a VMod update renames it, the drag keeps VMod's sense and nothing else changes.
+  - **The rotate drag's sense:** one client mixin negates both mouse angles where VMod's client builds the drag's rotation (`ClientPhysgunState.handleMouseMovement`), so the near side follows the mouse, left and right, up and down, for ships and entities alike (`rotation.invertMouseX` / `invertMouseY` restore VMod's sense per axis). The method is named as Kotlin compiles it (`handleMouseMovement$VMod`); if a VMod update renames it, the drag keeps VMod's sense and nothing else changes.
   - **If VMod changes:** the hook is in its own mixin config that isn't required, and names its target by its full descriptor. If a class, method or field it uses is missing after a VMod update, the server logs one line at start ("VMod's physgun doesn't work the way Physgun Unbound expects ...") and the addon does nothing. VMod keeps working.
 - **Valkyrien Skies:**
   - **Through Camafy:** the entity search ends at the first world or ship block (Camafy's `Ships.clip`), entities in a shipyard are left to their ship, and a grabbed entity is released from VS's deck carrying (`ShipEntities.letGo`) on the side that simulates it.
@@ -99,9 +99,9 @@ A held entity runs the same law:
   - `AbstractArrow.tick`, `ThrowableProjectile.tick`, `AbstractHurtingProjectile.tick`, `ShulkerBullet.tick`, `LlamaSpit.tick`, `FireworkRocketEntity.tick` (HEAD, cancellable): a held or frozen projectile runs only `Entity.baseTick` on the server (projectiles move themselves in their ticks, not through `move`).
   - `AbstractArrow.inGround` (accessor): stuck arrows aren't picked up.
   - `ServerGamePacketListenerImpl.tick` (HEAD): resets the flying-kick counters of held players.
-  - `EntityRenderDispatcher.render` (client, around the renderer's `render` call): draws a held or frozen entity's model turned; the shadow, hitbox and name tag stay put, and GUI portraits (Camafy's `GuiEntityRender`) are left alone.
+  - `EntityRenderDispatcher.render` (client, around the renderer's `render` call): draws a held or frozen entity's model turned, and (a `@Redirect` of the dispatcher's own `renderShadow` call) its shadow as an ellipse along the way it lies (Camafy's `BlobShadow`); the hitbox and name tag stay put, and GUI portraits (Camafy's `GuiEntityRender`) are left alone. Gravity Unbound wraps the same shadow call and hands ordinary-gravity entities on to it.
   - `PlayerPhysgunState.fromPkt` (TAIL): VMod's messages.
-  - `ClientPhysgunState.handleMouseMovement$VMod` (client, `@ModifyArg`, optional): the rotate drag's mouse-X sense.
+  - `ClientPhysgunState.handleMouseMovement$VMod` (client, two `@ModifyArg`s, optional): the rotate drag's sense on both mouse axes.
 
 ## Config
 
@@ -123,7 +123,8 @@ A held entity runs the same law:
 
 | Key | Default | What it does |
 |---|---|---|
-| `invertMouse` | `false` | The rotate drag turns things the way the mouse goes (mouse left: near side left). `true` is VMod's own sense. Applies to ships too. |
+| `invertMouseX` | `false` | The rotate drag moves the near side the way the mouse goes (mouse left: near side left). `true` is VMod's own sense. Applies to ships too. |
+| `invertMouseY` | `false` | The same for up and down (mouse up: near side up, the top tips away). `true` is VMod's own sense. |
 | `returnTicks` | `10` | How long a let-go or unfrozen entity takes to roll back upright, in ticks. `0` snaps. |
 
 ## Building and testing
