@@ -9,7 +9,8 @@
     "PlayerPhysgunStateMixin"
   ],
   "client": [
-    "client.ClientPhysgunStateMixin"
+    "client.ClientPhysgunStateMixin",
+    "client.PhysgunRayRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 0

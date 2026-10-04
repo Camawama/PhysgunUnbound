@@ -44,6 +44,7 @@ public final class PuConfig {
         public final ForgeConfigSpec.DoubleValue fallbackSpring;
         public final ForgeConfigSpec.DoubleValue fallbackDamping;
         public final ForgeConfigSpec.BooleanValue followViewPitch;
+        public final ForgeConfigSpec.BooleanValue scaleWithHolder;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> ungrabbable;
 
         private final IdMatcher.Cached<EntityType<?>> ungrabbableMatcher;
@@ -75,6 +76,12 @@ public final class PuConfig {
                             "ship does (and as a prop does in Garry's Mod). Off, it only turns with the view's heading and",
                             "stays level; the rotate drag (E) tips it either way.")
                     .define("followViewPitch", true);
+            scaleWithHolder = b.comment("Whether the physgun's lengths are the holder's own: in VS Genesis's Great Unknown (or with any size",
+                            "mod) a player shrunk to 1/16 pulls things in to 1/16 of minDistance, pushes them out to 1/16 of",
+                            "maxDistance, moves them 1/16 of a block per wheel notch (held ships too) and holds and throws them",
+                            "at up to 1/16 of maxSpeed, so a shrunk world handles like a full-size one. Off, they are always in",
+                            "full-size blocks.")
+                    .define("scaleWithHolder", true);
             ungrabbable = b.comment("Entities the physgun never picks up: ids (minecraft:wither), #tags, wildcards (create:*) or /regex/.",
                             "Everything else with a body is picked up, modded entities and projectiles included. The tag",
                             "#physgununbound:ungrabbable lists the ender dragon; the markers, displays and interaction boxes",
@@ -121,6 +128,10 @@ public final class PuConfig {
 
         public boolean followViewPitch() {
             return ConfigUtil.getOr(followViewPitch);
+        }
+
+        public boolean scaleWithHolder() {
+            return ConfigUtil.getOr(scaleWithHolder);
         }
 
         public boolean isUngrabbable(EntityType<?> type) {

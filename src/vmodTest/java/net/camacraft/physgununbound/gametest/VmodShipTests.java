@@ -145,6 +145,79 @@ public class VmodShipTests {
                 });
     }
 
+    /**
+     * In a shrunk world (VS Genesis's Great Unknown: players and ships at 1/16) the wheel moves a held ship in the
+     * holder's own blocks: a 1/16 holder grabs a 1/16 raft through VMod's own code, and two wheel notches move VMod's
+     * hold distance two of the holder's blocks (1/8 of a block), not two full blocks.
+     */
+    @GameTest(template = TestUtil.PLATFORM, timeoutTicks = 400, batch = BATCH)
+    public static void aShrunkHoldersWheelMovesAShrunkShipInItsOwnBlocks(GameTestHelper helper) {
+        if (!Ships.available()) {
+            helper.fail("Valkyrien Skies isn't running");
+            return;
+        }
+        ServerLevel level = helper.getLevel();
+        BlockPos o = origin(helper);
+        Set<BlockPos> blocks = new HashSet<>();
+        for (BlockPos pos : BlockPos.betweenClosed(o.offset(0, 3, 0), o.offset(4, 3, 4))) {
+            level.setBlock(pos, Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
+            blocks.add(pos.immutable());
+        }
+        FakePlayer holder = FakePlayerFactory.get(level, new GameProfile(UUID.randomUUID(), "[PU tiny ship test]"));
+        holder.setPos(o.getX() + 2.5, o.getY() + 3.0, o.getZ() - 1.5);
+        TestScale.scale(holder, 1.0F / 16.0F);
+        holder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ForgeRegistries.ITEMS.getValue(Vmod.PHYSGUN)));
+        List<ServerPlayer> players = playerList(level);
+        if (!players.contains(holder)) players.add(holder);
+
+        ServerShip ship = ShipAssembler.assembleToShip(level, blocks, 1.0 / 16.0);
+        if (ship == null) {
+            players.remove(holder);
+            helper.fail("VS couldn't assemble a raft");
+            return;
+        }
+        ship.setStatic(true);
+        ChunkClaim claim = ship.getChunkClaim();
+        forceClaim(level, claim, true);
+        long shipId = ship.getId();
+        ShipRef ref = ShipRef.of(level, shipId);
+        UUID id = holder.getUUID();
+        double[] before = new double[1];
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(ref.isLoaded(), "VS hasn't loaded the raft yet"))
+                .thenExecute(() -> {
+                    var p = ship.getTransform().getPositionInWorld();
+                    aim(holder, new Vec3(p.x(), p.y(), p.z()));
+                    VmodIntegrationTests.send(holder, m -> m.setPrimaryActivated(true));
+                })
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    helper.assertTrue(state(id) == shipId, "VMod didn't grab the 1/16 raft (holds ship " + state(id) + ")");
+                    before[0] = ServerPhysgunState.INSTANCE.getPlayerStates().get(id).getDistanceFromPlayer();
+                    VmodIntegrationTests.send(holder, m -> {
+                        m.setPrimaryActivated(true);
+                        m.setIncreaseDistanceBy(2.0);
+                    });
+                })
+                .thenIdle(1)
+                .thenExecute(() -> {
+                    double after = ServerPhysgunState.INSTANCE.getPlayerStates().get(id).getDistanceFromPlayer();
+                    double step = after - before[0];
+                    PhysgunUnbound.LOGGER.info("[PU gametest] 1/16 holder, 1/16 raft, two wheel notches: grabbed at {} blocks, moved {}",
+                            TestUtil.fmt(before[0]), TestUtil.fmt(step));
+                    helper.assertTrue(Math.abs(step - 0.125) < 1.0E-6, "two notches moved VMod's hold on the 1/16 raft "
+                            + TestUtil.fmt(step) + " blocks, not 0.125");
+                    VmodIntegrationTests.send(holder, m -> m.setPrimaryActivated(false));
+                })
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    players.remove(holder);
+                    forceClaim(level, claim, false);
+                    helper.succeed();
+                });
+    }
+
     private static long state(UUID id) {
         var state = ServerPhysgunState.INSTANCE.getPlayerStates().get(id);
         return state == null ? -1L : state.getMainShipId();

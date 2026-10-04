@@ -126,7 +126,8 @@ public final class Holds {
 
         PuConfig.Server cfg = PuConfig.SERVER;
         Vec3 eye = holder.getEyePosition();
-        double distance = Mth.clamp(hitPoint.distanceTo(eye), cfg.minDistance(), cfg.maxDistance());
+        double scale = HolderScale.of(holder); // in the holder's own blocks: 1/16 in the Great Unknown
+        double distance = Mth.clamp(hitPoint.distanceTo(eye), cfg.minDistance() * scale, cfg.maxDistance() * scale);
         Hold.Mode mode = isClientSimulated(entity) ? Hold.Mode.CLIENT : Hold.Mode.SERVER;
         Vec3 velocity = EntityScale.realVelocity(entity, Gravity.getWorldVelocity(entity)).scale(20.0);
         Hold hold = new Hold(holder, entity, requirePhysgun, mode,
@@ -247,8 +248,10 @@ public final class Holds {
             if (turn != null && isTurnable(hold.entity) && isUnitQuaternion(turn)) hold.turnBy(new Quaterniond(turn).normalize());
             double wheel = NetValidate.finiteClamp(input.distanceDelta(), -64.0, 64.0, 0.0);
             if (wheel != 0.0) {
+                // a notch is one of the holder's own blocks (1/16 of a block in the Great Unknown)
                 PuConfig.Server cfg = PuConfig.SERVER;
-                hold.distance = Mth.clamp(hold.distance + wheel, cfg.minDistance(), cfg.maxDistance());
+                double scale = HolderScale.of(holder);
+                hold.distance = Mth.clamp(hold.distance + wheel * scale, cfg.minDistance() * scale, cfg.maxDistance() * scale);
             }
         }
     }
@@ -346,11 +349,12 @@ public final class Holds {
 
         Vec3 target = hold.target();
         Vec3 offset = hold.offset();
+        double maxSpeed = cfg.maxSpeed() * HolderScale.of(holder); // the holder's blocks per second
         if (hold.mode == Hold.Mode.SERVER) {
-            moveOnServer(hold, entity, target, offset, cfg.maxSpeed());
+            moveOnServer(hold, entity, target, offset, maxSpeed);
             ModelPose.applyFacing(entity, hold.orientation, hold.yaw);
         } else {
-            moveOnClient(hold, entity, target.subtract(offset), cfg.maxSpeed());
+            moveOnClient(hold, entity, target.subtract(offset), maxSpeed);
         }
         entity.resetFallDistance();
         for (Entity rider : entity.getIndirectPassengers()) rider.resetFallDistance();

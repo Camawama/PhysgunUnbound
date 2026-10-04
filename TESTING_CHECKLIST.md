@@ -29,6 +29,14 @@ Tick each box as you go. Next to anything that looks wrong, write what you saw.
 
 - [ ] Grab a thrown egg or snowball in flight and hold E: the sprite keeps facing you whatever you do with the mouse (it never turns edge-on); its shadow on the ground still turns. A dropped item and an experience orb likewise.
 
+### In the Great Unknown (VS Genesis, everything at 1/16)
+- [ ] Grab a pig (or a cow) a few of your own blocks away. It stays where you grabbed it; it doesn't jump out in front of you.
+- [ ] Wheel up and down. It moves about one of your own (tiny) blocks a notch, as a cow does a block a notch at full size.
+- [ ] Grab a ship there and wheel: the ship also moves about one of your blocks a notch.
+- [ ] Move the mouse a little while holding and let go: the pig drifts off gently, about as fast (in your own blocks) as the same flick throws a cow at full size, not flung across the room.
+- [ ] Swing hard and let go: a real throw, still in proportion to your size.
+- [ ] Look at the beam while holding the pig, and while holding a ship: it is a thin line leaving your hand, as thin against the tiny world as it is at full size, not a huge tube from off to the side. A second player at 1/16 sees your beam thin too.
+
 ## 2. Freezing
 - [ ] Hold a zombie in the air and right click. It stays exactly there, doesn't move, attack or fall, and you are no longer holding it.
 - [ ] Throw a Loyalty trident at a mob, grab it as it flies back, freeze it. It hangs perfectly still (no creeping, no stutter) on your screen and on a second player's; R brings it back to you. A trident without Loyalty, an arrow and a snowball frozen in flight sit still the same way.

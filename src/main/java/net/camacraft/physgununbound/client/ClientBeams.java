@@ -6,6 +6,7 @@ import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import net.camacraft.physgununbound.hold.HolderScale;
 import net.camacraft.physgununbound.network.BeamMessage;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -30,6 +31,10 @@ import java.util.Map;
  * first person: 0.2 below, 0.6 right of and 0.45 in front of the camera; otherwise the holder's
  * eyes), bends out along the look for half the distance to the held point, then curves in to the
  * grabbed point on the entity, so it sags toward the crosshair while the entity lags behind.
+ *
+ * <p>Drawn at the holder's size ({@link HolderScale#size}): a 1/16 player (VS Genesis's Great Unknown) draws a tube
+ * 1/16 as thick, leaving the gun 1/16 as far from the camera, so it looks the same against its world as a full-size
+ * beam does against a full-size one.
  */
 public final class ClientBeams {
     private static final int SEGMENTS = 32;
@@ -40,6 +45,9 @@ public final class ClientBeams {
     private static final int TIMEOUT = 10;
 
     private record Beam(int entityId, Vec3 offset, long seen) {}
+
+    /** One beam's points and how thick it is drawn. */
+    private record Curve(Vec3[] points, double radius) {}
 
     private static final Map<Integer, Beam> BEAMS = new HashMap<>();
     private static final BufferBuilder BUFFER = new BufferBuilder(4096);
@@ -76,19 +84,20 @@ public final class ClientBeams {
         Vec3 cam = camera.getPosition();
         Vec3 camUp = new Vec3(camera.getUpVector());
 
-        List<Vec3[]> curves = new ArrayList<>(BEAMS.size());
+        List<Curve> curves = new ArrayList<>(BEAMS.size());
         for (Map.Entry<Integer, Beam> entry : BEAMS.entrySet()) {
             if (!(level.getEntity(entry.getKey()) instanceof Player holder)) continue;
             Entity held = level.getEntity(entry.getValue().entityId());
             if (held == null) continue;
 
+            double size = HolderScale.size(holder);
             Vec3 start;
             Vec3 look;
             if (holder == mc.player && !camera.isDetached()) {
                 look = new Vec3(camera.getLookVector()).normalize();
                 Vec3 up = new Vec3(camera.getUpVector());
                 Vec3 left = new Vec3(camera.getLeftVector());
-                start = cam.subtract(up.scale(0.2)).subtract(left.scale(0.6)).add(look.scale(0.45));
+                start = cam.subtract(up.scale(0.2 * size)).subtract(left.scale(0.6 * size)).add(look.scale(0.45 * size));
             } else {
                 start = holder.getEyePosition(partialTick);
                 look = holder.getViewVector(partialTick).normalize();
@@ -96,7 +105,7 @@ public final class ClientBeams {
             Vec3 end = held.getPosition(partialTick).add(entry.getValue().offset());
             double along = Math.abs(end.subtract(start).dot(look));
             Vec3 middle = start.add(look.scale(along / 2.0));
-            curves.add(curve(start, middle, end));
+            curves.add(new Curve(curve(start, middle, end), RADIUS * size));
         }
         if (curves.isEmpty()) return;
 
@@ -104,7 +113,7 @@ public final class ClientBeams {
         PoseStack pose = event.getPoseStack();
         Matrix4f matrix = pose.last().pose();
         BUFFER.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-        for (Vec3[] points : curves) tube(matrix, points, camUp, cam);
+        for (Curve c : curves) tube(matrix, c.points(), c.radius(), camUp, cam);
 
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.enableBlend();
@@ -131,7 +140,7 @@ public final class ClientBeams {
     }
 
     /** A four-sided tube along the points, its faces wound to face out (so back faces cull). */
-    private static void tube(Matrix4f matrix, Vec3[] points, Vec3 camUp, Vec3 cam) {
+    private static void tube(Matrix4f matrix, Vec3[] points, double radius, Vec3 camUp, Vec3 cam) {
         Vec3[] previous = null;
         for (int i = 0; i < points.length; i++) {
             Vec3 dir = i + 1 < points.length ? points[i + 1].subtract(points[i]) : points[i].subtract(points[i - 1]);
@@ -144,7 +153,7 @@ public final class ClientBeams {
             Vec3[] ring = new Vec3[SIDES];
             for (int k = 0; k < SIDES; k++) {
                 double angle = Math.PI * 2.0 * k / SIDES;
-                ring[k] = points[i].add(u.scale(Math.cos(angle) * RADIUS)).add(v.scale(Math.sin(angle) * RADIUS));
+                ring[k] = points[i].add(u.scale(Math.cos(angle) * radius)).add(v.scale(Math.sin(angle) * radius));
             }
             if (previous != null) {
                 for (int k = 0; k < SIDES; k++) {
