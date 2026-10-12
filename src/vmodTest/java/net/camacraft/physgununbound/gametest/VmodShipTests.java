@@ -218,6 +218,86 @@ public class VmodShipTests {
                 });
     }
 
+    /**
+     * A ship broken up while VMod holds it: the holder's next physgun message (VMod's client sends one every tick the
+     * camera turns, and on right click) must not reach VMod's handler with the gone ship still held. VMod looks it up
+     * with Kotlin's {@code !!}, and on a real server the NullPointerException on the network thread kicks the player
+     * ("Internal Exception: java.lang.NullPointerException"; the owner's report). The addon lets go of it first.
+     */
+    @GameTest(template = TestUtil.PLATFORM, timeoutTicks = 400, batch = BATCH)
+    public static void aShipDeletedWhileHeldIsLetGoAndNoMessageFails(GameTestHelper helper) {
+        if (!Ships.available()) {
+            helper.fail("Valkyrien Skies isn't running");
+            return;
+        }
+        ServerLevel level = helper.getLevel();
+        BlockPos o = origin(helper);
+        Set<BlockPos> blocks = new HashSet<>();
+        for (BlockPos pos : BlockPos.betweenClosed(o.offset(0, 3, 0), o.offset(2, 3, 2))) {
+            level.setBlock(pos, Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
+            blocks.add(pos.immutable());
+        }
+        FakePlayer holder = FakePlayerFactory.get(level, new GameProfile(UUID.randomUUID(), "[PU deleted ship test]"));
+        holder.setPos(o.getX() - 4.5, o.getY() + 3.0, o.getZ() + 1.5);
+        holder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ForgeRegistries.ITEMS.getValue(Vmod.PHYSGUN)));
+        List<ServerPlayer> players = playerList(level);
+        if (!players.contains(holder)) players.add(holder);
+
+        ServerShip ship = ShipAssembler.assembleToShip(level, blocks, 1.0);
+        if (ship == null) {
+            players.remove(holder);
+            helper.fail("VS couldn't assemble a raft");
+            return;
+        }
+        ship.setStatic(true);
+        ChunkClaim claim = ship.getChunkClaim();
+        forceClaim(level, claim, true);
+        long shipId = ship.getId();
+        ShipRef ref = ShipRef.of(level, shipId);
+        UUID id = holder.getUUID();
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(ref.isLoaded(), "VS hasn't loaded the raft yet"))
+                .thenExecute(() -> {
+                    aim(holder, new Vec3(o.getX(), o.getY() + 3.5, o.getZ() + 1.5)); // its west face
+                    VmodIntegrationTests.send(holder, m -> m.setPrimaryActivated(true));
+                })
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    helper.assertTrue(state(id) == shipId, "VMod didn't grab the raft (holds ship " + state(id) + ")");
+                    org.valkyrienskies.mod.common.VSGameUtilsKt.getShipObjectWorld(level).deleteShip(ship);
+                })
+                .thenWaitUntil(() -> helper.assertTrue(Ships.byId(level, shipId) == null, "VS hasn't removed the raft yet"))
+                .thenExecute(() -> {
+                    // a camera turn and a right click (freeze), as the holder's client would send them right away
+                    try {
+                        VmodIntegrationTests.send(holder, m -> m.setPrimaryActivated(true));
+                        VmodIntegrationTests.send(holder, m -> {
+                            m.setPrimaryActivated(true);
+                            m.setFreezeSelected(true);
+                        });
+                        VmodIntegrationTests.send(holder, m -> {
+                            m.setPrimaryActivated(true);
+                            m.setUnfreezeAllOrOne(true);
+                        });
+                    } catch (Throwable t) {
+                        Throwable cause = t.getCause() != null && t.getCause().getCause() != null ? t.getCause().getCause() : t;
+                        players.remove(holder);
+                        forceClaim(level, claim, false);
+                        helper.fail("a physgun message after the held ship was deleted failed in VMod's handler: " + cause);
+                        return;
+                    }
+                    helper.assertTrue(state(id) == -1L, "VMod still holds the deleted ship " + state(id));
+                    helper.assertFalse(ServerPhysgunState.INSTANCE.getActive().contains(id), "the holder is still active in VMod");
+                })
+                .thenExecute(() -> {
+                    VmodIntegrationTests.send(holder, m -> m.setPrimaryActivated(false));
+                    players.remove(holder);
+                    forceClaim(level, claim, false);
+                    helper.succeed();
+                });
+    }
+
     private static long state(UUID id) {
         var state = ServerPhysgunState.INSTANCE.getPlayerStates().get(id);
         return state == null ? -1L : state.getMainShipId();

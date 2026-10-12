@@ -269,6 +269,9 @@ public final class Holds {
 
     /** One server tick, at the start of the tick (see the class comment). */
     public static void tick(MinecraftServer server) {
+        // before VMod's own physgun tick, and whether or not entity holds are on: a ship VMod holds that is gone
+        // would kick its holder at their next physgun message
+        if (!Vmod.failed()) Vmod.access().letGoOfMissingShips();
         if (!PuConfig.SERVER.enabled() || Vmod.failed()) {
             if (!BY_HOLDER.isEmpty()) endAll(End.RELEASED);
             PhysgunInput.Queues.clear();

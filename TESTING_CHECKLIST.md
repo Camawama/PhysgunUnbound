@@ -101,3 +101,6 @@ Tick each box as you go. Next to anything that looks wrong, write what you saw.
 
 ## 7. Performance
 - [ ] Hold a mob for a minute near a busy base: no tick lag in `/spark tps`, and nothing from Physgun Unbound in a spark profile.
+
+## 8. A held ship that is destroyed (2026-10-10)
+- [ ] Hold a ship with the physgun and break all its blocks (or `/vs delete` it, or let Full Stop smash it) while still holding the button, then move the mouse, right click and press R: you stay in the world (before: "Internal Exception: java.lang.NullPointerException"), the beam goes back to seeking, and grabbing another ship works.

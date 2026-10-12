@@ -49,6 +49,15 @@ public interface VmodAccess {
     /** VMod's damper constant (DCONST), or {@code fallback}. */
     double damping(UUID player, double fallback);
 
+    /**
+     * Lets go of every ship VMod still holds for a player although it no longer exists (broken up, deleted, or in
+     * another dimension than its holder), as VMod does when the button comes up; a player whose button is still down
+     * seeks again. Server thread, at the start of the tick. VMod itself never notices: its packet handler looks the
+     * held ship up with Kotlin's {@code !!}, and a {@code NullPointerException} on the network thread ends the
+     * player's connection ("Internal Exception: java.lang.NullPointerException").
+     */
+    void letGoOfMissingShips();
+
     /** Touches everything the bridge uses once, so a mismatch shows at server start. Throws on a mismatch. */
     void probe() throws Throwable;
 
@@ -90,6 +99,10 @@ public interface VmodAccess {
         @Override
         public double damping(UUID player, double fallback) {
             return fallback;
+        }
+
+        @Override
+        public void letGoOfMissingShips() {
         }
 
         @Override

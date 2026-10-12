@@ -36,6 +36,10 @@ public final class VmodPackets {
         if (Vmod.failed() || player == null || message == null) return;
         try {
             UUID id = player.getUUID();
+            // A held ship that is gone since (broken up, deleted): VMod's handler, right after this, looks it up with
+            // `!!` and the NullPointerException ends the connection (the owner was kicked). Let go of it first: the
+            // handler then sees no held ship and, with the button still down, seeks again.
+            VmodBridgeImpl.letGoIfShipGone(state, id);
             Quaterniond turn = message.getQuatDiff();
             PhysgunInput input = new PhysgunInput(message.getPrimaryActivated(), message.getRotate(),
                     message.getFreezeSelected(), message.getFreezeAll(), message.getUnfreezeAllOrOne(),

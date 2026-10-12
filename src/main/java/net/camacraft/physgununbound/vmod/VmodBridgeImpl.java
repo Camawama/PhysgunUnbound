@@ -1,5 +1,6 @@
 package net.camacraft.physgununbound.vmod;
 
+import net.camacraft.camafy.compat.vs.Ships;
 import net.minecraft.server.level.ServerPlayer;
 import net.spaceeye.vmod.physgun.PlayerPhysgunState;
 import net.spaceeye.vmod.physgun.ServerPhysgunState;
@@ -148,10 +149,54 @@ public final class VmodBridgeImpl implements VmodAccess {
     }
 
     @Override
+    public void letGoOfMissingShips() {
+        if (!working()) return;
+        try {
+            Set<UUID> holding = ServerPhysgunState.INSTANCE.getActive();
+            if (holding.isEmpty()) return;
+            for (UUID id : new ArrayList<>(holding)) {
+                PlayerPhysgunState state = state(id);
+                if (state == null) continue;
+                synchronized (state.getLock()) {
+                    if (letGoIfShipGone(state, id) && state.getPrimaryActivated()) {
+                        ServerPhysgunState.INSTANCE.getActivelySeeking().add(id);
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            broken("letting go of a held ship that is gone", t);
+        }
+    }
+
+    /**
+     * If the ship VMod holds for this player no longer exists in the player's dimension, lets go of it the way VMod's
+     * handler does when the left button comes up (no held ship, no caught ships, not active, the beam removed) and
+     * answers true; the caller decides whether the player seeks again. Call under VMod's lock for the player (its
+     * packet handler synchronizes on {@code state.getLock()}). Does nothing while Camafy can't see ships: an unknown
+     * ship is then not a missing one.
+     */
+    static boolean letGoIfShipGone(PlayerPhysgunState state, UUID id) {
+        long held = state.getMainShipId();
+        if (held == -1L || !Ships.available()) return false;
+        ServerPlayer player = state.getServerPlayer();
+        if (player == null || Ships.byId(player.level(), held) != null) return false;
+        state.setMainShipId(-1L);
+        state.getCaughtShipIds().clear();
+        ServerPhysgunState.INSTANCE.getActive().remove(id);
+        int beam = state.getRID();
+        if (beam != -1) {
+            RenderingData.INSTANCE.getServer().removeRenderer(beam);
+            state.setRID(-1);
+        }
+        return true;
+    }
+
+    @Override
     public void probe() throws Throwable {
         ServerPhysgunState server = ServerPhysgunState.INSTANCE;
         if (server == null) throw new IllegalStateException("ServerPhysgunState.INSTANCE is null");
         server.getActivelySeeking().size();
+        server.getActive().size();
         server.getPlayerStates().size();
         if (RenderingData.INSTANCE.getServer() == null) throw new IllegalStateException("no server rendering data");
         // what the calls above don't touch yet: resolve it now rather than at the first grab
@@ -164,6 +209,9 @@ public final class VmodBridgeImpl implements VmodAccess {
         state.getMethod("getPConst");
         state.getMethod("getDConst");
         state.getMethod("setRotate", boolean.class);
+        state.getMethod("setMainShipId", long.class);
+        state.getMethod("getCaughtShipIds");
+        state.getMethod("getPrimaryActivated");
         ServerSynchronisedRenderingData.class.getMethod("removeRenderer", int.class);
         Class<?> message = ServerPhysgunState.C2SPhysgunStateChanged.class;
         for (String getter : new String[]{"getPrimaryActivated", "getRotate", "getFreezeSelected", "getFreezeAll",
