@@ -39,6 +39,14 @@ public final class HeldEntities {
     private static final Set<Entity> SERVER_MOVED = weakIdentitySet();
     /** Entries in {@link #SERVER_MOVED} and {@link #FROZEN}: the move hook's fast path. */
     private static final AtomicInteger BLOCKING = new AtomicInteger();
+    /**
+     * Entries in {@link #CLAIMED} and {@link #FROZEN}: the claim callback's fast path (2026-10-17: Camafy asks the
+     * callback for every entity every tick on behalf of Gravity Unbound and Full Stop, and each ask was two weak-set
+     * lookups; now one volatile read while nothing is held). Only ever counted up and down with the sets' own adds
+     * and removes, so a held entity dropped by the garbage collector can leave it high (the fast path is then off
+     * until the sets are seen empty), never low.
+     */
+    private static final AtomicInteger HELD = new AtomicInteger();
     /** Set while the hold itself moves an entity (server thread). */
     private static boolean ownMove;
     /** Entity ids this client knows the server keeps still (held: it sees the beam; frozen: it was told the pose). */
@@ -54,6 +62,7 @@ public final class HeldEntities {
     /** Registers the standing claim with Camafy. Mod construction. */
     public static void registerClaims() {
         PhysicsOwnership.register(OWNER, entity -> {
+            if (HELD.get() <= 0) return 0;
             if (CLAIMED.contains(entity)) return PhysicsAspect.ALL;
             if (FROZEN.contains(entity)) return PhysicsAspect.MOTION.bit;
             return 0;
@@ -63,11 +72,18 @@ public final class HeldEntities {
     // ------------------------------------------------------------------ claims
 
     public static void claim(Entity entity) {
-        CLAIMED.add(entity);
+        if (CLAIMED.add(entity)) HELD.incrementAndGet();
     }
 
     public static void unclaim(Entity entity) {
-        CLAIMED.remove(entity);
+        if (CLAIMED.remove(entity)) HELD.decrementAndGet();
+        settleHeld();
+    }
+
+    /** Drops a count the garbage collector left behind: nothing held or frozen, the count back to 0 (atomically). */
+    private static void settleHeld() {
+        int held = HELD.get();
+        if (held > 0 && CLAIMED.isEmpty() && FROZEN.isEmpty()) HELD.compareAndSet(held, 0);
     }
 
     /** Whether the physgun holds this entity (server or client copy, whichever this is). */
@@ -86,11 +102,18 @@ public final class HeldEntities {
     }
 
     static void markFrozen(Entity entity) {
-        if (FROZEN.add(entity)) BLOCKING.incrementAndGet();
+        if (FROZEN.add(entity)) {
+            BLOCKING.incrementAndGet();
+            HELD.incrementAndGet();
+        }
     }
 
     static void unmarkFrozen(Entity entity) {
-        if (FROZEN.remove(entity)) BLOCKING.decrementAndGet();
+        if (FROZEN.remove(entity)) {
+            BLOCKING.decrementAndGet();
+            HELD.decrementAndGet();
+        }
+        settleHeld();
     }
 
     public static boolean isMarkedFrozen(Entity entity) {
