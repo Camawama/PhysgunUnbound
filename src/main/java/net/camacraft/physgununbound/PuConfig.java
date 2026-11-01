@@ -46,6 +46,7 @@ public final class PuConfig {
         public final ForgeConfigSpec.BooleanValue followViewPitch;
         public final ForgeConfigSpec.BooleanValue scaleWithHolder;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> ungrabbable;
+        public final ForgeConfigSpec.BooleanValue vmodMessagesOnServerThread;
 
         private final IdMatcher.Cached<EntityType<?>> ungrabbableMatcher;
 
@@ -90,6 +91,16 @@ public final class PuConfig {
                             "(their blocks move them). A datapack can add to the tag.")
                     .defineListAllowEmpty("ungrabbable", List.of("#physgununbound:ungrabbable"), o -> o instanceof String);
             b.pop();
+            b.push("vmod");
+            vmodMessagesOnServerThread = b.comment("Whether VMod's physgun messages are handled on the server thread. VMod handles them on the",
+                            "network thread under a per-player lock, and for R with the left button up it ray-casts there; a ray",
+                            "through a chunk that isn't loaded (a ship's shipyard beside it) waits for the server thread, which",
+                            "waits for that lock at the start of every tick while the player holds a ship: the server froze for good.",
+                            "On, every physgun message goes to the server thread in order, as vanilla's own game packets do, and",
+                            "the ray-cast loads what it reads there. Off is VMod's own way. The system property",
+                            "-Dphysgununbound.vmodMessagesOnServerThread=true|false overrides this.")
+                    .define("messagesOnServerThread", true);
+            b.pop();
             ungrabbableMatcher = IdMatcher.cached(BuiltInRegistries.ENTITY_TYPE, "physgununbound ungrabbable", ungrabbable);
         }
 
@@ -132,6 +143,10 @@ public final class PuConfig {
 
         public boolean scaleWithHolder() {
             return ConfigUtil.getOr(scaleWithHolder);
+        }
+
+        public boolean vmodMessagesOnServerThread() {
+            return ConfigUtil.getOr(vmodMessagesOnServerThread);
         }
 
         public boolean isUngrabbable(EntityType<?> type) {

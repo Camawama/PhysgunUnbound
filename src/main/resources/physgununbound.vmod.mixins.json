@@ -6,7 +6,8 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "physgununbound.refmap.json",
   "mixins": [
-    "PlayerPhysgunStateMixin"
+    "PlayerPhysgunStateMixin",
+    "PhysgunMessageThreadMixin"
   ],
   "client": [
     "client.ClientPhysgunStateMixin",

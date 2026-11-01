@@ -13,15 +13,16 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * The plugin of {@code physgununbound.vmod.mixins.json}, the VMod hook's own config (not
- * required: whatever goes wrong applying it is logged, never fatal). It applies the hook only when
- * VMod and its physgun state class are there, and records whether the hook really made it into
- * {@code fromPkt} ({@link VmodHookStatus}), so a VMod that changed gets one log line at server
- * start and an idle addon instead of a crash.
+ * The plugin of {@code physgununbound.vmod.mixins.json}, the VMod hooks' own config (not
+ * required: whatever goes wrong applying it is logged, never fatal). It applies the hooks only when
+ * VMod and its physgun state class are there, and records whether they really made it into
+ * {@code fromPkt} and into VMod's message handler ({@link VmodHookStatus}), so a VMod that changed
+ * gets one log line at server start and an idle addon instead of a crash.
  */
 public final class VmodMixinPlugin implements IMixinConfigPlugin {
     private static final String STATE_CLASS = "net/spaceeye/vmod/physgun/PlayerPhysgunState.class";
     private static final String HANDLER = "physgununbound$onPhysgunMessage";
+    private static final String THREAD_HANDLER = "physgununbound$onTheServerThread";
 
     private boolean apply;
 
@@ -46,16 +47,20 @@ public final class VmodMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
-        for (MethodNode method : targetClass.methods) {
-            if (!"fromPkt".equals(method.name)) continue;
-            for (AbstractInsnNode insn : method.instructions) {
+        if (calls(targetClass, "fromPkt", HANDLER)) VmodHookStatus.markApplied();
+        if (calls(targetClass, "serverHandler", THREAD_HANDLER)) VmodHookStatus.markMessagesHooked();
+    }
+
+    /** Whether {@code method} of the class calls a handler whose name contains {@code handler}. */
+    private static boolean calls(ClassNode targetClass, String method, String handler) {
+        for (MethodNode node : targetClass.methods) {
+            if (!method.equals(node.name)) continue;
+            for (AbstractInsnNode insn : node.instructions) {
                 // Mixin merges the handler under a decorated name that still contains ours
-                if (insn instanceof MethodInsnNode call && call.name.contains(HANDLER)) {
-                    VmodHookStatus.markApplied();
-                    return;
-                }
+                if (insn instanceof MethodInsnNode call && call.name.contains(handler)) return true;
             }
         }
+        return false;
     }
 
     @Override

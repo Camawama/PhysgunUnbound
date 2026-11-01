@@ -117,6 +117,14 @@ public final class Vmod {
             return;
         }
         PhysgunUnbound.LOGGER.info("VMod {} found: its physgun picks up entities too", vmodVersion());
+        if (VmodHookStatus.messagesHooked()) {
+            PhysgunUnbound.LOGGER.info("VMod's physgun messages are handled on the server thread ([vmod] messagesOnServerThread: {})",
+                    VmodMessages.enabled() ? "on" : "off");
+        } else {
+            LogOnce.warn(PhysgunUnbound.LOGGER, "physgununbound-vmod-messages-unhooked",
+                    "The hook into VMod {}'s physgun message handler didn't apply, so VMod handles its messages on the network thread: "
+                            + "R by a held ship near unloaded ship chunks can freeze the server for good, as without Physgun Unbound", vmodVersion());
+        }
     }
 
     private static String vmodVersion() {

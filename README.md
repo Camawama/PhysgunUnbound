@@ -85,6 +85,7 @@ A held entity runs the same law:
   - **The hook:** one mixin reads the physgun's buttons at the end of `PlayerPhysgunState.fromPkt`, where VMod's own handler reads them. The mod calls a few public methods on VMod's `ServerPhysgunState` and `PlayerPhysgunState`, and removes VMod's own seeking beam while an entity is held. Everything else is VMod's, untouched: ships, the toolgun.
   - **The wheel on a held ship:** VMod adds each wheel notch to its hold distance as a full block. The same hook (`fromPkt`, TAIL, before VMod's handler applies it) scales the notch to the holder's size, so a shrunk player's wheel moves a shrunk ship in their own blocks (`scaleWithHolder`).
   - **The rotate drag's sense:** one client mixin negates both mouse angles where VMod's client builds the drag's rotation (`ClientPhysgunState.handleMouseMovement`), so the near side follows the mouse, left and right, up and down, for ships and entities alike (`rotation.invertMouseX` / `invertMouseY` restore VMod's sense per axis). The method is named as Kotlin compiles it (`handleMouseMovement$VMod`); if a VMod update renames it, the drag keeps VMod's sense and nothing else changes.
+  - **VMod's physgun messages on the server thread** (2026-10-30, after a server froze for good): VMod handles its physgun message on the network thread inside `synchronized (state.getLock())`, and for R with the left button up it ray-casts there, through the shipyard of every ship near the ray. A shipyard chunk that isn't loaded makes the network thread wait for the server thread, which takes the same lock at the start of every tick for every player holding a ship (VMod's own physgun tick; this mod's let-go of held ships that are gone did too): neither thread moves again. A second hook at the head of VMod's handler (`ServerPhysgunState$special$$inlined$regC2S$1.serverHandler`, by name, optional) copies a message that arrives on any other thread and hands it to the server, in order and between ticks as vanilla hands over its own game packets, where VMod's handler runs it (`vmod/VmodMessages`); the ray-cast then loads what it reads on the server thread. Switch `[vmod] messagesOnServerThread` (on). This mod itself never waits for VMod's lock on the server thread, switch or not. Pack harness `physgun_deadlock` reproduces the freeze.
   - **If VMod changes:** the hook is in its own mixin config that isn't required, and names its target by its full descriptor. If a class, method or field it uses is missing after a VMod update, the server logs one line at start ("VMod's physgun doesn't work the way Physgun Unbound expects ...") and the addon does nothing. VMod keeps working.
 - **Valkyrien Skies:**
   - **Through Camafy:** the entity search ends at the first world or ship block (Camafy's `Ships.clip`), entities in a shipyard are left to their ship, and a grabbed entity is released from VS's deck carrying (`ShipEntities.letGo`) on the side that simulates it.
@@ -104,6 +105,7 @@ A held entity runs the same law:
   - `ServerGamePacketListenerImpl.tick` (HEAD): resets the flying-kick counters of held players.
   - `EntityRenderDispatcher.render` (client, around the renderer's `render` call): draws a held or frozen entity's model turned, and (a `@Redirect` of the dispatcher's own `renderShadow` call) its shadow as an ellipse along the way it lies (Camafy's `BlobShadow`, on a ship's deck when the entity is held over one: `ShipShadows.under`, Camafy 0.1.18); the hitbox and name tag stay put, GUI portraits (Camafy's `GuiEntityRender`) are left alone, and so are renderers that face the camera (`ClientModelRotations.drawsTurned`). Gravity Unbound wraps the same shadow call and hands ordinary-gravity entities on to it.
   - `PlayerPhysgunState.fromPkt` (TAIL): VMod's messages.
+  - VMod's physgun message handler `serverHandler` (HEAD, cancellable, optional): a message arriving off the server thread is handed to the server thread.
   - `ClientPhysgunState.handleMouseMovement$VMod` (client, two `@ModifyArg`s, optional): the rotate drag's sense on both mouse axes.
   - `PhysgunRayRenderer.renderData` (client, four `@ModifyConstant`s, optional): VMod's beam at its holder's size (its 0.1-block thickness and its first-person start, 0.2 below, 0.6 right of and 0.45 in front of the camera).
 
@@ -123,6 +125,12 @@ A held entity runs the same law:
 | `followViewPitch` | `true` | A held entity tips with the holder's view when they look up and down, as a ship does. Off, it only turns with the view's heading. |
 | `scaleWithHolder` | `true` | The physgun's lengths are the holder's own size: a 1/16 player (VS Genesis's Great Unknown) gets 1/16 of `minDistance`, `maxDistance` and `maxSpeed`, and 1/16 of a block per wheel notch, for entities and for ships held through VMod. Off, they are always full-size blocks. |
 | `ungrabbable` | `["#physgununbound:ungrabbable"]` | Entity ids, `#tags`, wildcards (`create:*`) or `/regex/` never picked up. |
+
+Section `vmod`:
+
+| Key | Default | What it does |
+|---|---|---|
+| `messagesOnServerThread` | `true` | VMod's physgun messages are handled on the server thread instead of the network thread, so VMod's R ray-cast can't freeze the server waiting for a chunk under its lock. `-Dphysgununbound.vmodMessagesOnServerThread=true|false` overrides it. |
 
 `config/physgununbound-client.toml`, section `rotation`:
 

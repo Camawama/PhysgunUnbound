@@ -12,8 +12,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * VMod's physgun messages, read as VMod reads them: at the end of {@code fromPkt}, which VMod's
- * handler calls first thing for every physgun message, on the network thread and under the
- * player's lock (see {@link VmodPackets}).
+ * handler calls first thing for every physgun message, under the player's lock: on the server
+ * thread since {@code PhysgunMessageThreadMixin} hands the messages over, else on the network
+ * thread (see {@link VmodPackets}).
  *
  * <p>Applied only when VMod is installed ({@link VmodMixinPlugin}), from a config that isn't
  * required. The target is named with its full descriptor and nothing is required of it, so a VMod

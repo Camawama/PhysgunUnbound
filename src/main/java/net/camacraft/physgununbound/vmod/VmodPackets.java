@@ -12,8 +12,10 @@ import java.util.UUID;
 
 /**
  * Called by {@code mixin.vmod.PlayerPhysgunStateMixin} at the end of
- * {@code PlayerPhysgunState.fromPkt}, on the network thread, inside VMod's lock for the player,
- * before VMod's handler decides what the message means for ships.
+ * {@code PlayerPhysgunState.fromPkt}, inside VMod's lock for the player, before VMod's handler
+ * decides what the message means for ships. That is on the server thread between ticks
+ * ({@link VmodMessages}, on by default), or on the network thread where VMod handles its messages
+ * itself (switched off, or a VMod whose handler the hook missed).
  *
  * <p>Two things happen:
  * <ul>

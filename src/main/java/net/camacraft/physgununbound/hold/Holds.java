@@ -37,7 +37,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Every physgun hold on an entity, and what happens to it each tick. Server thread only, apart
- * from {@link #isHolding}, which VMod's packet hook asks from the network thread.
+ * from {@link #isHolding}, which VMod's packet hook asks from whichever thread VMod's handler runs on
+ * (the server thread unless {@code [vmod] messagesOnServerThread} is off).
  *
  * <p>Each server tick, before any level ticks (and before VMod's own physgun tick, which runs at
  * a lower priority on the same event):
@@ -315,10 +316,7 @@ public final class Holds {
             if (player == null || player.isRemoved() || player.isSpectator() || !Vmod.isPhysgun(player.getMainHandItem())) continue;
             if (BY_HOLDER.containsKey(id)) {
                 // already holding: VMod's seeking must not run behind the hold's back
-                vmod.withPlayerLock(id, () -> {
-                    vmod.stopSeeking(id);
-                    return null;
-                });
+                vmod.stopSeeking(id);
                 continue;
             }
             if (vmod.holdingShip(id)) continue;
@@ -326,13 +324,11 @@ public final class Holds {
             if (pick == null) continue;
             double spring = vmod.spring(id, cfg.fallbackSpring());
             double damping = vmod.damping(id, cfg.fallbackDamping());
-            // Under VMod's lock for this player: its packet handler can't slip a "seek again" in
-            // between the hold starting and its seeking stopping.
-            vmod.withPlayerLock(id, () -> {
-                Hold hold = grab(player, pick.entity(), pick.point(), true, spring, damping);
-                if (hold != null) vmod.stopSeeking(id);
-                return hold;
-            });
+            // Never under VMod's lock (its handler may hold it while it waits for this thread: the 2026-10-30 freeze).
+            // With VMod's messages handled on the server thread none can come between the hold starting and its
+            // seeking stopping; without, one that slips a "seek again" in is undone just above next tick.
+            Hold hold = grab(player, pick.entity(), pick.point(), true, spring, damping);
+            if (hold != null) vmod.stopSeeking(id);
         }
     }
 
