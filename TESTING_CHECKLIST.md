@@ -82,7 +82,8 @@ Tick each box as you go. Next to anything that looks wrong, write what you saw.
 - [ ] B dies while held (A holds B over lava). The hold ends and A's physgun works again.
 - [ ] B is in a Game Start match with PvP off, or protected: A can't pick B up.
 - [ ] B has Physgun Unbound removed from their client (VMod still installed): B can still join, A can still hold B (a little laggier), and B sees no beam.
-- [ ] Set `grabPlayers = false`: A can't pick up B, or a horse B rides.
+- [ ] With the default config (`playersCanBePickedUp = false`), A not an operator: A can't pick up B, or a horse B rides. A as an operator (or with `physgununbound.grab.players`): A can, from 100 blocks.
+- [ ] Set `playersCanBePickedUp = true`, A not an operator: A picks B up from within `playerRange` (16 blocks) and not from farther. A holds a horse and B mounts it: the hold ends.
 
 ## 6. Other mods
 - [ ] **Gravity Unbound:** stand next to plating that makes a sideways or inverted field and grab a cow outside it. Carry it into the field: it follows the crosshair exactly, no drift along the field's "down", no fight (it isn't yanked toward the plates while you hold it). Let go inside the field: it flies the way you swung it, then the field's gravity takes it. Freeze it inside the field: it hangs still. Grab a cow that is standing on the plating: it comes off and follows you.

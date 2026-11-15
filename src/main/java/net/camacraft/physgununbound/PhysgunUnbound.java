@@ -43,6 +43,9 @@ public final class PhysgunUnbound {
         PuNetwork.init();
         HeldEntities.registerClaims();
         HoldEvents.register();
+        // known before the server starts, so that Forge hands it to the permissions mod
+        net.camacraft.camafy.permission.Permissions.entry(MOD_ID, net.camacraft.physgununbound.hold.Grabbing.GRAB_PLAYERS,
+                net.camacraft.physgununbound.hold.Grabbing.GRAB_PLAYERS_LEVEL);
         if (FMLEnvironment.dist.isClient()) PhysgunUnboundClient.init(modBus);
     }
 

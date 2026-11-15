@@ -3,8 +3,10 @@ package net.camacraft.physgununbound.hold;
 import net.camacraft.camafy.compat.gravity.Gravity;
 import net.camacraft.camafy.compat.vs.Ships;
 import net.camacraft.camafy.minigame.MatchPolicies;
+import net.camacraft.camafy.permission.Permissions;
 import net.camacraft.camafy.physics.PhysicsAspect;
 import net.camacraft.camafy.physics.PhysicsOwnership;
+import net.camacraft.physgununbound.PhysgunUnbound;
 import net.camacraft.physgununbound.PuConfig;
 import net.camacraft.physgununbound.mixin.AbstractArrowAccessor;
 import net.minecraft.server.level.ServerPlayer;
@@ -37,6 +39,13 @@ import java.util.function.Predicate;
 public final class Grabbing {
     /** Entities are looked for in stretches of the ray this long (a few small box queries, not one huge one). */
     private static final double STRETCH = 16.0;
+    /**
+     * The staff permission {@code physgununbound.grab.players}: picking players up whatever the config says, at the
+     * full range. Operators (level 2) have it; a permissions mod can give it to others. A minigame's protection
+     * still holds for them.
+     */
+    public static final String GRAB_PLAYERS = "grab.players";
+    public static final int GRAB_PLAYERS_LEVEL = 2;
 
     private Grabbing() {}
 
@@ -93,6 +102,9 @@ public final class Grabbing {
         return entity.getRootVehicle();
     }
 
+    /** The physgun as Camafy's match policies know it ({@code MatchPolicies.mayUse}): a host may refuse it to a player. */
+    public static final net.minecraft.resources.ResourceLocation MECHANIC = new net.minecraft.resources.ResourceLocation("physgununbound", "physgun");
+
     /**
      * Why {@code holder} may not pick {@code target} up, or null if it may. Follows the pack's
      * rules: never oneself or a spectator; never what another mod scripts the motion of (MKW's
@@ -100,6 +112,8 @@ public final class Grabbing {
      * only if the config and every minigame host allow it, and the same host rules for anything else.
      */
     public static @Nullable String refusal(ServerPlayer holder, Entity target) {
+        // A host's rules may switch the physgun off for the holder (a minigame without it): asked first.
+        if (!MatchPolicies.mayUse(holder, MECHANIC)) return "a minigame switches the physgun off";
         if (target == holder) return "that is the holder";
         if (target.isRemoved() || !target.isAlive()) return "it is gone";
         if (target.isSpectator()) return "it is a spectator";
@@ -120,14 +134,31 @@ public final class Grabbing {
         for (Entity rider : target.getIndirectPassengers()) {
             if (rider == holder) return "it carries the holder";
             if (rider.isSpectator()) return "a spectator rides it";
-            if (rider instanceof Player && !PuConfig.SERVER.grabPlayers()) return "a player rides it";
+            if (rider instanceof Player && playerRefusal(holder, rider, true) != null) return "a player rides it";
             if (!MatchPolicies.canHarm(holder, rider)) return "a minigame protects its rider";
         }
-        if (target instanceof Player && !PuConfig.SERVER.grabPlayers()) return "players can't be picked up";
+        if (target instanceof Player) {
+            String why = playerRefusal(holder, target, true);
+            if (why != null) return why;
+        }
         Hold theirs = target instanceof ServerPlayer player ? Holds.holdOf(player) : null;
         if (theirs != null && (theirs.entity == holder || theirs.entity == holder.getRootVehicle())) {
             return "it is holding the holder";
         }
+        return null;
+    }
+
+    /**
+     * Why {@code holder} may not pick up (or go on holding, with {@code starting} false) the player {@code player},
+     * or what they ride; null if they may. Staff with {@link #GRAB_PLAYERS} always may. Anyone else only with the
+     * config's {@code playersCanBePickedUp} on, and to start with only from within {@code playerRange} (a held
+     * player may then be pushed out as far as anything else).
+     */
+    public static @Nullable String playerRefusal(ServerPlayer holder, Entity player, boolean starting) {
+        if (Permissions.has(holder, PhysgunUnbound.MOD_ID, GRAB_PLAYERS, GRAB_PLAYERS_LEVEL)) return null;
+        if (!PuConfig.SERVER.grabPlayers()) return "players can't be picked up";
+        double range = PuConfig.SERVER.playerRange() + 2.0; // to the eyes of a body up to two blocks off its feet
+        if (starting && player.distanceToSqr(holder.getEyePosition()) > range * range) return "the player is too far away";
         return null;
     }
 }

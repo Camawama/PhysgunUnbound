@@ -300,9 +300,28 @@ public final class Holds {
         if (holder.level() != entity.level()) return End.LOST;
         if (hold.requirePhysgun && !Vmod.isPhysgun(holder.getMainHandItem())) return End.LOST;
         if (entity.isPassenger()) return End.LOST; // it mounted something: the hold only ever moves whole stacks
+        if (carriesPlayerItMayNot(holder, entity)) return End.LOST;
         Hold.Mode now = isClientSimulated(entity) ? Hold.Mode.CLIENT : Hold.Mode.SERVER;
         if (now != hold.mode) return End.LOST; // someone took the reins of a held boat, or left them
         return null;
+    }
+
+    /**
+     * Whether what is held is, or by now carries, a player this holder may not hold: one who mounted a held horse
+     * or boat, one a minigame protects since (they joined a match while held), or any player once the config or the
+     * holder's permission no longer allows it.
+     */
+    private static boolean carriesPlayerItMayNot(ServerPlayer holder, Entity entity) {
+        if (entity instanceof Player && mayNotHold(holder, entity)) return true;
+        if (!entity.isVehicle()) return false;
+        for (Entity rider : entity.getIndirectPassengers()) {
+            if (rider instanceof Player && mayNotHold(holder, rider)) return true;
+        }
+        return false;
+    }
+
+    private static boolean mayNotHold(ServerPlayer holder, Entity player) {
+        return Grabbing.playerRefusal(holder, player, false) != null || !MatchPolicies.canHarm(holder, player);
     }
 
     /** VMod is seeking for these players: grab an entity in front of whatever it would find. */

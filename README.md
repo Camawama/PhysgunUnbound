@@ -42,7 +42,7 @@ Seeking works as VMod's does. Hold the left button and sweep the crosshair, and 
   - anything a minigame protects (Camafy's `MatchPolicies.canHarm`, which Game Start provides);
   - types in `#physgununbound:ungrabbable`, or in the `ungrabbable` config list. The tag holds the ender dragon; markers, displays and interaction boxes (data only); item frames, paintings and lead knots; fishing bobbers and eyes of ender (they fly themselves); and Create's contraptions, trains, seats and glue.
 - **How the tag applies to modded entities:** every entity has a registry id (`automobility:automobile`, `supplementaries:bomb`). The tag is the data file `data/physgununbound/tags/entity_types/ungrabbable.json`, a list of those ids; a datapack (or another mod's data) can add ids to it with a file of the same name (`"replace": false`), and an entry written as `{ "id": "somemod:thing", "required": false }` is skipped when that mod isn't installed. Anything not listed is picked up, so a modded entity needs no entry to work. The `ungrabbable` config list does the same without a datapack, and takes wildcards (`create:*`) and `/regex/`.
-- **Players:** only if `grabPlayers` is on (it is by default) and every minigame host allows it. A held player can't be frozen; right click just lets them go.
+- **Players:** only by staff with the permission `physgununbound.grab.players`, or by anyone within `playerRange` if `playersCanBePickedUp` is on (it is off by default), and only if every minigame host allows it. A hold ends when a player it may not carry mounts what is held, or joins a match that protects them. A held player can't be frozen; right click just lets them go.
 
 ## How a held entity moves
 
@@ -116,8 +116,9 @@ A held entity runs the same law:
 | Key | Default | What it does |
 |---|---|---|
 | `enabled` | `true` | Whether the physgun picks up entities at all. |
-| `grabPlayers` | `true` | Whether players (and anything a player rides) can be picked up. Minigame hosts can still forbid it per player. |
+| `playersCanBePickedUp` | `false` | Whether players (and anything a player rides) can be picked up by anyone. Off, only staff with the permission `physgununbound.grab.players` do (operators have it; a permissions mod such as LuckPerms can give it to others; `/camafy permissions` lists it). Minigame hosts still forbid it per player, for staff too. Was `grabPlayers`, on by default, until 1.0.1. |
 | `range` | `100` | How far away an entity can be picked up, in blocks (VMod's own reach). |
+| `playerRange` | `16` | How far away a player (or what a player rides) can be picked up with `playersCanBePickedUp` on. Staff with the permission reach as far as `range`. |
 | `minDistance` | `1` | The closest an entity can be pulled in (VMod lets ships come to 0; an entity that close would sit inside you). |
 | `maxDistance` | `128` | The farthest it can be pushed out. It stops at the edge of loaded chunks. |
 | `maxSpeed` | `70` | The fastest a held entity moves, and so the fastest throw, in blocks per second (3.5 blocks a tick). |

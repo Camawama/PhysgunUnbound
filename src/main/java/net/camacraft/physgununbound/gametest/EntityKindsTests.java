@@ -83,13 +83,23 @@ public class EntityKindsTests {
 
     /**
      * A held player is claimed and, having no client with the mod (this one is fake), is steered
-     * with velocity toward the target from the server. Letting go clears the claim.
+     * with velocity toward the target from the server. Letting go clears the claim. The holder is
+     * an operator: by default only staff (the permission physgununbound.grab.players) pick players up.
      */
     @GameTest(template = PLATFORM, timeoutTicks = 60)
     public static void playersAreHeldThroughTheirOwnMotion(GameTestHelper helper) {
         FakePlayer holder = TestUtil.holder(helper, new Vec3(3.5, 2.0, 12.5), -90.0F, -30.0F);
         FakePlayer held = TestUtil.holder(helper, new Vec3(7.5, 2.0, 12.5), 90.0F, 0.0F);
-        Hold hold = TestUtil.grab(helper, holder, held);
+        var players = helper.getLevel().getServer().getPlayerList();
+        // (not PlayerList.op: the gametest server hands out operator level 0)
+        players.getOps().add(new net.minecraft.server.players.ServerOpListEntry(holder.getGameProfile(), 2, false));
+        Hold hold;
+        try {
+            hold = TestUtil.grab(helper, holder, held);
+        } catch (RuntimeException | Error e) {
+            players.deop(holder.getGameProfile());
+            throw e;
+        }
         if (hold.mode() != Hold.Mode.CLIENT) helper.fail("a player is moved by the server, not their own client");
         helper.runAfterDelay(2, () -> {
             Vec3 toTarget = hold.entityTarget().subtract(held.position());
@@ -98,6 +108,7 @@ public class EntityKindsTests {
             if (!PhysicsOwnership.claimed(held, PhysicsAspect.MOTION)) helper.fail("the held player isn't claimed");
             if (held.fallDistance != 0.0F) helper.fail("a held player builds up fall distance");
             Holds.end(hold, Holds.End.RELEASED);
+            players.deop(holder.getGameProfile());
             if (PhysicsOwnership.claimed(held, PhysicsAspect.MOTION)) helper.fail("the released player is still claimed");
             helper.succeed();
         });

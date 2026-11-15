@@ -38,6 +38,7 @@ public final class PuConfig {
         public final ForgeConfigSpec.BooleanValue enabled;
         public final ForgeConfigSpec.BooleanValue grabPlayers;
         public final ForgeConfigSpec.DoubleValue range;
+        public final ForgeConfigSpec.DoubleValue playerRange;
         public final ForgeConfigSpec.DoubleValue minDistance;
         public final ForgeConfigSpec.DoubleValue maxDistance;
         public final ForgeConfigSpec.DoubleValue maxSpeed;
@@ -55,11 +56,17 @@ public final class PuConfig {
             b.push("physgun");
             enabled = b.comment("Whether VMod's physgun picks up entities at all.")
                     .define("enabled", true);
-            grabPlayers = b.comment("Whether the physgun picks up other players (and anything a player rides).",
-                            "A minigame host (Game Start) can still forbid it per player through Camafy's match rules.")
-                    .define("grabPlayers", true);
+            // Was "grabPlayers", on by default, until 1.0.1. A new key, so that a world's saved config doesn't keep the old default.
+            grabPlayers = b.comment("Whether the physgun picks up other players (and anything a player rides). Off, only staff do:",
+                            "whoever has the permission physgununbound.grab.players (operators have it; a permissions mod can",
+                            "give it to others), at the full range. A minigame host (Game Start) still forbids it per player",
+                            "through Camafy's match rules, for staff too.")
+                    .define("playersCanBePickedUp", false);
             range = b.comment("How far away an entity can be picked up, in blocks. VMod's physgun reaches ships 100 blocks away.")
                     .defineInRange("range", 100.0, 1.0, 512.0);
+            playerRange = b.comment("How far away a player (or what a player rides) can be picked up with playersCanBePickedUp on,",
+                            "in blocks. Never farther than range. Staff with the permission reach as far as range.")
+                    .defineInRange("playerRange", 16.0, 1.0, 512.0);
             minDistance = b.comment("The closest an entity can be pulled in, in blocks from the eyes.",
                             "VMod lets a ship come right up to 0; an entity that close would sit inside the holder.")
                     .defineInRange("minDistance", 1.0, 0.0, 16.0);
@@ -114,6 +121,10 @@ public final class PuConfig {
 
         public double range() {
             return ConfigUtil.getOr(range);
+        }
+
+        public double playerRange() {
+            return Math.min(range(), ConfigUtil.getOr(playerRange));
         }
 
         public double minDistance() {

@@ -91,6 +91,23 @@ public class RuleTests {
         helper.succeed();
     }
 
+    /** With the default config a holder without the staff permission picks up no player, and nothing a player rides. */
+    @GameTest(template = PLATFORM, timeoutTicks = 20)
+    public static void playersAreNotPickedUpByDefault(GameTestHelper helper) {
+        FakePlayer holder = TestUtil.holder(helper, new Vec3(3.5, 2.0, 12.5), -90.0F, 0.0F);
+        FakePlayer other = TestUtil.holder(helper, new Vec3(7.5, 2.0, 12.5), 0.0F, 0.0F);
+        String why = net.camacraft.physgununbound.hold.Grabbing.refusal(holder, other);
+        if (!"players can't be picked up".equals(why)) helper.fail("a player was not refused as a player: " + why);
+        refuse(helper, holder, other, "a player");
+
+        Entity pig = helper.spawn(EntityType.PIG, new Vec3(7.5, 2.0, 9.5));
+        other.startRiding(pig, true);
+        why = net.camacraft.physgununbound.hold.Grabbing.refusal(holder, pig);
+        other.stopRiding();
+        if (!"a player rides it".equals(why)) helper.fail("a pig a player rides was not refused: " + why);
+        helper.succeed();
+    }
+
     private static void refuse(GameTestHelper helper, FakePlayer holder, Entity entity, String what) {
         Hold hold = Holds.grab(holder, entity, entity.getBoundingBox().getCenter(), false, TestUtil.SPRING, TestUtil.DAMPING);
         if (hold != null) {

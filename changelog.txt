@@ -5,7 +5,14 @@ and this project adheres to Semantic Versioning (https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Security (1.0.1)
+- **Players are no longer picked up by whoever holds a physgun.** Anyone with VMod's physgun lifted any player within 100 blocks, carried them 128 blocks up and let go. Picking up a player, or anything a player rides, is now off unless the server allows it: server config `playersCanBePickedUp` (off; it replaces `grabPlayers`, which was on, under a new name so that a world's saved config doesn't keep the old default), and then only from within `playerRange` (16 blocks; never farther than `range`, which still bounds everything else at 100). Staff pick players up whatever the config says and at the full range, with the permission `physgununbound.grab.players` through Camafy's `permission.Permissions` (operators have it; a permissions mod can give it to others; `/camafy permissions` lists it). A minigame's protection (Camafy's `MatchPolicies.canHarm`) holds for everyone, staff included, as before.
+- A hold ends when it comes to carry a player the holder may not hold: a player who mounts a held horse or boat, a held player who joins a match that protects them, or any held player once the config or the permission no longer allows it.
+- Needs Camafy 0.1.89 (was 0.1.18).
+- Gametests: 22 (was 21): a holder without the permission picks up neither a player nor a pig a player rides; the held-player test's holder is an operator.
+
 ### Added
+- A host's rules can switch the physgun off for a player: before anything is picked up the holder is asked for through Camafy's match policies (`MatchPolicies.mayUse(holder, physgununbound:physgun)`, in `Grabbing.refusal`), and a host that refuses (Game Start 0.2's per-game rule `physgun`) leaves the gun without effect. Without such a host nothing changes. Needs the Camafy that has `MatchPolicy.mayUse` (0.1.92): `camafy_version` must be raised to it.
 - Fixed before release: the shadow redirect's handler was static while the dispatcher's render method is not, which Mixin refuses at game start (the gametest server never loads client mixins, so only a real client showed it).
 - The rotate drag (E and the mouse) turns a held entity every way, as it turns a held ship: the whole model tips and rolls about its centre. Mobs, animals, items, boats, carts, arrows, anything. What the entity's own renderer can show (its heading; an arrow's heading and pitch) goes into the entity itself, the rest is drawn by clients with the mod on top (`hold/ModelPose`, `client/ClientModelRotations`, a client mixin around `EntityRenderDispatcher`'s renderer call); the hitbox never turns. Looking up and down tips a held entity with the view too, like a ship (server `followViewPitch`, on).
 - Let go or unfrozen, a turned entity rolls back upright over half a second (client `rotation.returnTicks`, 10) instead of snapping.
